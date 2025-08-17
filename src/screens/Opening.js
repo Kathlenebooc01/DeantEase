@@ -12,7 +12,7 @@ export default function Opening({ navigation }) {
         duration: 1000,
         useNativeDriver: true,
       }).start();
-    }, 2000);
+    }, 1500);
     return () => clearTimeout(timer);
   }, []);
 

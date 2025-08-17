@@ -136,258 +136,243 @@ export default function SignUpScreen({ navigation }) {
   return (
     <SafeAreaProvider>
       <SafeAreaView style={styles.container}>
-        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-          <View style={styles.mainContainer}>
-            {/* Header Section */}
-            <View style={styles.header}>
-              <View style={styles.headerContent}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          style={{ flex: 1 }}
+          keyboardVerticalOffset={Platform.OS === "ios" ? 0 : -100}
+        >
+          <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+            <ScrollView
+              style={styles.mainContainer}
+              contentContainerStyle={styles.scrollContainer}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+              bounces={true}
+            >
+              {/* Header Section */}
+              <View style={styles.header}>
                 <Text style={styles.hello}>Hello!</Text>
                 <Text style={styles.welcome}>
                   Welcome to <Text style={styles.brand}>DentEase</Text>
                 </Text>
               </View>
-            </View>
 
-            {/* Full Screen White Card */}
-            <View style={styles.card}>
-              <KeyboardAvoidingView
-                behavior={Platform.OS === "ios" ? "padding" : "height"}
-                style={{ flex: 1 }}
-                keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 0}
-              >
-                <ScrollView
-                  style={{ flex: 1 }}
-                  contentContainerStyle={styles.scrollContent}
-                  keyboardShouldPersistTaps="handled"
-                  showsVerticalScrollIndicator={false}
-                  bounces={false}
-                  overScrollMode="never"
+              {/* Sign Up title */}
+              <Text style={styles.signUpTitle}>Sign Up</Text>
+
+              {/* Full Name Input */}
+              <View style={styles.inputContainer}>
+                <Text style={styles.label}>Full Name</Text>
+                <View
+                  style={[
+                    styles.inputWrapper,
+                    fullNameFocused && styles.inputFocused,
+                    fullNameError && styles.inputError,
+                  ]}
                 >
-                  {/* Logo/Picture */}
-                  <View style={styles.logoContainer}>
-                    <View style={styles.logoImageContainer}>
-                      <Ionicons name="person-add-outline" size={60} color="#4A90E2" />
-                    </View>
-                  </View>
+                  <Ionicons name="person-outline" size={20} color="#ffffff" style={styles.inputIcon} />
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Clara Lauren"
+                    value={fullName}
+                    onChangeText={(text) => {
+                      setFullName(text)
+                      if (fullNameError) setFullNameError("")
+                    }}
+                    onFocus={() => setFullNameFocused(true)}
+                    onBlur={() => setFullNameFocused(false)}
+                    autoCapitalize="words"
+                    autoCorrect={false}
+                    underlineColorAndroid="transparent"
+                    selectionColor="#ffffff"
+                    textContentType="name"
+                    placeholderTextColor="rgba(255,255,255,0.7)"
+                    accessibilityLabel="Full name input"
+                    accessibilityHint="Enter your full name"
+                    returnKeyType="next"
+                  />
+                </View>
+                {fullNameError ? <Text style={styles.errorText}>{fullNameError}</Text> : null}
+              </View>
 
-                  {/* Sign Up title */}
-                  <Text style={styles.signUpTitle}>Sign Up</Text>
+              {/* Email Input */}
+              <View style={styles.inputContainer}>
+                <Text style={styles.label}>Email</Text>
+                <View
+                  style={[
+                    styles.inputWrapper,
+                    emailFocused && styles.inputFocused,
+                    emailError && styles.inputError,
+                  ]}
+                >
+                  <Ionicons name="mail-outline" size={20} color="#ffffff" style={styles.inputIcon} />
+                  <TextInput
+                    style={styles.input}
+                    placeholder="lauraclara124@gmail.com"
+                    value={email}
+                    onChangeText={(text) => {
+                      setEmail(text)
+                      if (emailError) setEmailError("")
+                    }}
+                    onFocus={() => setEmailFocused(true)}
+                    onBlur={() => setEmailFocused(false)}
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    underlineColorAndroid="transparent"
+                    selectionColor="#ffffff"
+                    textContentType="emailAddress"
+                    placeholderTextColor="rgba(255,255,255,0.7)"
+                    accessibilityLabel="Email input"
+                    accessibilityHint="Enter your email address"
+                    returnKeyType="next"
+                  />
+                </View>
+                {emailError ? <Text style={styles.errorText}>{emailError}</Text> : null}
+              </View>
 
-                  {/* Full Name Input */}
-                  <View style={styles.inputContainer}>
-                    <Text style={styles.label}>Full Name</Text>
-                    <View
-                      style={[
-                        styles.inputWrapper,
-                        fullNameFocused && styles.inputFocused,
-                        fullNameError && styles.inputError,
-                      ]}
-                    >
-                      <Ionicons name="person-outline" size={20} color="#666" style={styles.inputIcon} />
-                      <TextInput
-                        style={styles.input}
-                        placeholder="Clara Lauren"
-                        value={fullName}
-                        onChangeText={(text) => {
-                          setFullName(text)
-                          if (fullNameError) setFullNameError("")
-                        }}
-                        onFocus={() => setFullNameFocused(true)}
-                        onBlur={() => setFullNameFocused(false)}
-                        autoCapitalize="words"
-                        autoCorrect={false}
-                        underlineColorAndroid="transparent"
-                        selectionColor="#4A90E2"
-                        textContentType="name"
-                        placeholderTextColor="#999"
-                        accessibilityLabel="Full name input"
-                        accessibilityHint="Enter your full name"
-                        returnKeyType="next"
-                      />
-                    </View>
-                    {fullNameError ? <Text style={styles.errorText}>{fullNameError}</Text> : null}
-                  </View>
-
-                  {/* Email Input */}
-                  <View style={styles.inputContainer}>
-                    <Text style={styles.label}>Email</Text>
-                    <View
-                      style={[
-                        styles.inputWrapper,
-                        emailFocused && styles.inputFocused,
-                        emailError && styles.inputError,
-                      ]}
-                    >
-                      <Ionicons name="mail-outline" size={20} color="#666" style={styles.inputIcon} />
-                      <TextInput
-                        style={styles.input}
-                        placeholder="lauraclara124@gmail.com"
-                        value={email}
-                        onChangeText={(text) => {
-                          setEmail(text)
-                          if (emailError) setEmailError("")
-                        }}
-                        onFocus={() => setEmailFocused(true)}
-                        onBlur={() => setEmailFocused(false)}
-                        keyboardType="email-address"
-                        autoCapitalize="none"
-                        autoCorrect={false}
-                        underlineColorAndroid="transparent"
-                        selectionColor="#4A90E2"
-                        textContentType="emailAddress"
-                        placeholderTextColor="#999"
-                        accessibilityLabel="Email input"
-                        accessibilityHint="Enter your email address"
-                        returnKeyType="next"
-                      />
-                    </View>
-                    {emailError ? <Text style={styles.errorText}>{emailError}</Text> : null}
-                  </View>
-
-                  {/* Password Input */}
-                  <View style={styles.inputContainer}>
-                    <Text style={styles.label}>Password</Text>
-                    <View
-                      style={[
-                        styles.inputWrapper,
-                        passwordFocused && styles.inputFocused,
-                        passwordError && styles.inputError,
-                      ]}
-                    >
-                      <Ionicons name="lock-closed-outline" size={20} color="#666" style={styles.inputIcon} />
-                      <TextInput
-                        style={styles.input}
-                        placeholder="••••••••••"
-                        value={password}
-                        onChangeText={(text) => {
-                          setPassword(text)
-                          if (passwordError) setPasswordError("")
-                          if (confirmPassword && confirmPasswordError && text === confirmPassword) {
-                            setConfirmPasswordError("")
-                          }
-                        }}
-                        onFocus={() => setPasswordFocused(true)}
-                        onBlur={() => setPasswordFocused(false)}
-                        secureTextEntry={secureTextPassword}
-                        underlineColorAndroid="transparent"
-                        selectionColor="#4A90E2"
-                        textContentType="newPassword"
-                        placeholderTextColor="#999"
-                        accessibilityLabel="Password input"
-                        accessibilityHint="Enter your password"
-                        returnKeyType="next"
-                      />
-                      <TouchableOpacity
-                        onPress={() => setSecureTextPassword(!secureTextPassword)}
-                        style={styles.eyeIcon}
-                        accessibilityLabel={secureTextPassword ? "Show password" : "Hide password"}
-                      >
-                        <Ionicons
-                          name={secureTextPassword ? "eye-off-outline" : "eye-outline"}
-                          size={20}
-                          color="#666"
-                        />
-                      </TouchableOpacity>
-                    </View>
-                    {passwordError ? <Text style={styles.errorText}>{passwordError}</Text> : null}
-                  </View>
-
-                  {/* Confirm Password Input */}
-                  <View style={styles.inputContainer}>
-                    <Text style={styles.label}>Confirm Password</Text>
-                    <View
-                      style={[
-                        styles.inputWrapper,
-                        confirmPasswordFocused && styles.inputFocused,
-                        confirmPasswordError && styles.inputError,
-                      ]}
-                    >
-                      <Ionicons name="lock-closed-outline" size={20} color="#666" style={styles.inputIcon} />
-                      <TextInput
-                        style={styles.input}
-                        placeholder="123456789a"
-                        value={confirmPassword}
-                        onChangeText={(text) => {
-                          setConfirmPassword(text)
-                          if (confirmPasswordError) setConfirmPasswordError("")
-                        }}
-                        onFocus={() => setConfirmPasswordFocused(true)}
-                        onBlur={() => setConfirmPasswordFocused(false)}
-                        secureTextEntry={secureTextConfirm}
-                        underlineColorAndroid="transparent"
-                        selectionColor="#4A90E2"
-                        textContentType="newPassword"
-                        placeholderTextColor="#999"
-                        accessibilityLabel="Confirm password input"
-                        accessibilityHint="Confirm your password"
-                        returnKeyType="done"
-                        onSubmitEditing={handleSignUp}
-                      />
-                      <TouchableOpacity
-                        onPress={() => setSecureTextConfirm(!secureTextConfirm)}
-                        style={styles.eyeIcon}
-                        accessibilityLabel={secureTextConfirm ? "Show password" : "Hide password"}
-                      >
-                        <Ionicons
-                          name={secureTextConfirm ? "eye-off-outline" : "eye-outline"}
-                          size={20}
-                          color="#666"
-                        />
-                      </TouchableOpacity>
-                    </View>
-                    {confirmPasswordError ? <Text style={styles.errorText}>{confirmPasswordError}</Text> : null}
-                  </View>
-
-                  {/* Terms and Conditions */}
-                  <View style={styles.termsContainer}>
-                    <TouchableOpacity
-                      onPress={() => {
-                        setAcceptTerms(!acceptTerms)
-                        if (termsError) setTermsError("")
-                      }}
-                      style={styles.checkboxContainer}
-                    >
-                      <View style={[styles.checkbox, acceptTerms && styles.checkboxChecked]}>
-                        {acceptTerms && <Ionicons name="checkmark" size={14} color="#fff" />}
-                      </View>
-                      <Text style={styles.termsText}>
-                        I accept{" "}
-                        <Text style={styles.termsLink} onPress={handleTermsPress}>
-                          Terms and Conditions
-                        </Text>
-                      </Text>
-                    </TouchableOpacity>
-                    {termsError ? <Text style={styles.errorText}>{termsError}</Text> : null}
-                  </View>
-
-                  {/* Sign Up Button */}
-                  <Animated.View style={{ transform: [{ scale: buttonScale }] }}>
-                    <TouchableOpacity
-                      style={[styles.signUpButton, isLoading && styles.signUpButtonDisabled]}
-                      onPress={handleSignUp}
-                      disabled={isLoading}
-                      accessibilityLabel="Sign up button"
-                      accessibilityHint="Tap to create your account"
-                    >
-                      {isLoading ? (
-                        <ActivityIndicator color="#fff" size="small" />
-                      ) : (
-                        <Text style={styles.signUpButtonText}>Sign Up</Text>
-                      )}
-                    </TouchableOpacity>
-                  </Animated.View>
-
-                  {/* Login link */}
-                  <TouchableOpacity onPress={handleLogin} style={styles.loginContainer}>
-                    <Text style={styles.login}>
-                      Already have an account? <Text style={styles.loginLink}>Login here</Text>
-                    </Text>
+              {/* Password Input */}
+              <View style={styles.inputContainer}>
+                <Text style={styles.label}>Password</Text>
+                <View
+                  style={[
+                    styles.inputWrapper,
+                    passwordFocused && styles.inputFocused,
+                    passwordError && styles.inputError,
+                  ]}
+                >
+                  <Ionicons name="lock-closed-outline" size={20} color="#ffffff" style={styles.inputIcon} />
+                  <TextInput
+                    style={styles.input}
+                    placeholder="••••••••••"
+                    value={password}
+                    onChangeText={(text) => {
+                      setPassword(text)
+                      if (passwordError) setPasswordError("")
+                      if (confirmPassword && confirmPasswordError && text === confirmPassword) {
+                        setConfirmPasswordError("")
+                      }
+                    }}
+                    onFocus={() => setPasswordFocused(true)}
+                    onBlur={() => setPasswordFocused(false)}
+                    secureTextEntry={secureTextPassword}
+                    underlineColorAndroid="transparent"
+                    selectionColor="#ffffff"
+                    textContentType="newPassword"
+                    placeholderTextColor="rgba(255,255,255,0.7)"
+                    accessibilityLabel="Password input"
+                    accessibilityHint="Enter your password"
+                    returnKeyType="next"
+                  />
+                  <TouchableOpacity
+                    onPress={() => setSecureTextPassword(!secureTextPassword)}
+                    style={styles.eyeIcon}
+                    accessibilityLabel={secureTextPassword ? "Show password" : "Hide password"}
+                  >
+                    <Ionicons
+                      name={secureTextPassword ? "eye-off-outline" : "eye-outline"}
+                      size={20}
+                      color="#ffffff"
+                    />
                   </TouchableOpacity>
-                </ScrollView>
-              </KeyboardAvoidingView>
-            </View>
-          </View>
-        </TouchableWithoutFeedback>
+                </View>
+                {passwordError ? <Text style={styles.errorText}>{passwordError}</Text> : null}
+              </View>
+
+              {/* Confirm Password Input */}
+              <View style={styles.inputContainer}>
+                <Text style={styles.label}>Confirm Password</Text>
+                <View
+                  style={[
+                    styles.inputWrapper,
+                    confirmPasswordFocused && styles.inputFocused,
+                    confirmPasswordError && styles.inputError,
+                  ]}
+                >
+                  <Ionicons name="lock-closed-outline" size={20} color="#ffffff" style={styles.inputIcon} />
+                  <TextInput
+                    style={styles.input}
+                    placeholder="123456789a"
+                    value={confirmPassword}
+                    onChangeText={(text) => {
+                      setConfirmPassword(text)
+                      if (confirmPasswordError) setConfirmPasswordError("")
+                    }}
+                    onFocus={() => setConfirmPasswordFocused(true)}
+                    onBlur={() => setConfirmPasswordFocused(false)}
+                    secureTextEntry={secureTextConfirm}
+                    underlineColorAndroid="transparent"
+                    selectionColor="#ffffff"
+                    textContentType="newPassword"
+                    placeholderTextColor="rgba(255,255,255,0.7)"
+                    accessibilityLabel="Confirm password input"
+                    accessibilityHint="Confirm your password"
+                    returnKeyType="done"
+                    onSubmitEditing={handleSignUp}
+                  />
+                  <TouchableOpacity
+                    onPress={() => setSecureTextConfirm(!secureTextConfirm)}
+                    style={styles.eyeIcon}
+                    accessibilityLabel={secureTextConfirm ? "Show password" : "Hide password"}
+                  >
+                    <Ionicons
+                      name={secureTextConfirm ? "eye-off-outline" : "eye-outline"}
+                      size={20}
+                      color="#ffffff"
+                    />
+                  </TouchableOpacity>
+                </View>
+                {confirmPasswordError ? <Text style={styles.errorText}>{confirmPasswordError}</Text> : null}
+              </View>
+
+              {/* Terms and Conditions */}
+              <View style={styles.termsContainer}>
+                <TouchableOpacity
+                  onPress={() => {
+                    setAcceptTerms(!acceptTerms)
+                    if (termsError) setTermsError("")
+                  }}
+                  style={styles.checkboxContainer}
+                >
+                  <View style={[styles.checkbox, acceptTerms && styles.checkboxChecked]}>
+                    {acceptTerms && <Ionicons name="checkmark" size={14} color="#3F8FBA" />}
+                  </View>
+                  <Text style={styles.termsText}>
+                    I accept{" "}
+                    <Text style={styles.termsLink} onPress={handleTermsPress}>
+                      Terms and Conditions
+                    </Text>
+                  </Text>
+                </TouchableOpacity>
+                {termsError ? <Text style={styles.errorText}>{termsError}</Text> : null}
+              </View>
+
+              {/* Sign Up Button */}
+              <Animated.View style={{ transform: [{ scale: buttonScale }] }}>
+                <TouchableOpacity
+                  style={[styles.signUpButton, isLoading && styles.signUpButtonDisabled]}
+                  onPress={handleSignUp}
+                  disabled={isLoading}
+                  accessibilityLabel="Sign up button"
+                  accessibilityHint="Tap to create your account"
+                >
+                  {isLoading ? (
+                    <ActivityIndicator color="#3F8FBA" size="small" />
+                  ) : (
+                    <Text style={styles.signUpButtonText}>Sign Up</Text>
+                  )}
+                </TouchableOpacity>
+              </Animated.View>
+
+              {/* Login link */}
+              <TouchableOpacity onPress={handleLogin} style={styles.loginContainer}>
+                <Text style={styles.login}>
+                  Already have an account? <Text style={styles.loginLink}>Login here</Text>
+                </Text>
+              </TouchableOpacity>
+            </ScrollView>
+          </TouchableWithoutFeedback>
+        </KeyboardAvoidingView>
       </SafeAreaView>
     </SafeAreaProvider>
   )
@@ -396,19 +381,20 @@ export default function SignUpScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#4A90E2",
+    backgroundColor: "#3F8FBA",
   },
   mainContainer: {
     flex: 1,
+    backgroundColor: "#3F8FBA",
+  },
+  scrollContainer: {
+    flexGrow: 1,
+    paddingHorizontal: 24,
+    paddingTop: Platform.OS === "ios" ? 60 : 80,
+    paddingBottom: 40,
   },
   header: {
-    backgroundColor: "#4A90E2",
-    paddingTop: Platform.OS === "ios" ? 20 : 40,
-    paddingBottom: 40,
-    paddingHorizontal: 24,
-  },
-  headerContent: {
-    marginTop: 20,
+    marginBottom: 40,
   },
   hello: {
     fontSize: 32,
@@ -424,52 +410,11 @@ const styles = StyleSheet.create({
   brand: {
     fontWeight: "700",
   },
-  card: {
-    flex: 1,
-    backgroundColor: "#fff",
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: -2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 5,
-  },
-  scrollContent: {
-    paddingHorizontal: 24,
-    paddingTop: 32,
-    paddingBottom: 24,
-  },
-  logoContainer: {
-    alignItems: "center",
-    marginBottom: 8,
-  },
-  logoImageContainer: {
-    width: 140,
-    height: 140,
-    backgroundColor: "#ffffff",
-    borderRadius: 70,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 3,
-    borderColor: "#ffffff",
-    shadowColor: "#4A90E2",
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 5,
-  },
   signUpTitle: {
     textAlign: "center",
     fontWeight: "600",
     fontSize: 24,
-    color: "#4A90E2",
+    color: "#ffffff",
     marginBottom: 32,
   },
   inputContainer: {
@@ -478,26 +423,26 @@ const styles = StyleSheet.create({
   label: {
     fontWeight: "600",
     fontSize: 16,
-    color: "#333",
+    color: "#ffffff",
     marginBottom: 8,
   },
   inputWrapper: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#F8F9FA",
+    backgroundColor: "rgba(255,255,255,0.1)",
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: "#E9ECEF",
+    borderColor: "rgba(255,255,255,0.3)",
     paddingHorizontal: 16,
     minHeight: 52,
   },
   inputFocused: {
-    borderColor: "#4A90E2",
-    backgroundColor: "#F0F7FF",
+    borderColor: "#ffffff",
+    backgroundColor: "rgba(255,255,255,0.15)",
   },
   inputError: {
     borderColor: "#FF6B6B",
-    backgroundColor: "#FFF5F5",
+    backgroundColor: "rgba(255,107,107,0.1)",
   },
   inputIcon: {
     marginRight: 12,
@@ -505,7 +450,7 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     fontSize: 16,
-    color: "#333",
+    color: "#ffffff",
     paddingVertical: 0,
     borderWidth: 0,
     borderBottomWidth: 0,
@@ -518,7 +463,7 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   errorText: {
-    color: "#FF6B6B",
+    color: "#FFE6E6",
     fontSize: 14,
     marginTop: 4,
     marginLeft: 4,
@@ -535,34 +480,34 @@ const styles = StyleSheet.create({
     height: 20,
     borderRadius: 4,
     borderWidth: 2,
-    borderColor: "#E9ECEF",
-    backgroundColor: "#fff",
+    borderColor: "rgba(255,255,255,0.5)",
+    backgroundColor: "transparent",
     alignItems: "center",
     justifyContent: "center",
     marginRight: 12,
   },
   checkboxChecked: {
-    backgroundColor: "#4A90E2",
-    borderColor: "#4A90E2",
+    backgroundColor: "#ffffff",
+    borderColor: "#ffffff",
   },
   termsText: {
     flex: 1,
     fontSize: 14,
-    color: "#666",
+    color: "rgba(255,255,255,0.8)",
   },
   termsLink: {
-    color: "#4A90E2",
+    color: "#ffffff",
     fontWeight: "600",
     textDecorationLine: "underline",
   },
   signUpButton: {
-    backgroundColor: "#4A90E2",
+    backgroundColor: "#ffffff",
     paddingVertical: 16,
     borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
     minHeight: 52,
-    shadowColor: "#4A90E2",
+    shadowColor: "#000000",
     shadowOffset: {
       width: 0,
       height: 4,
@@ -575,7 +520,7 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   signUpButtonText: {
-    color: "#fff",
+    color: "#4A90E2",
     fontWeight: "600",
     fontSize: 16,
   },
@@ -585,10 +530,10 @@ const styles = StyleSheet.create({
   },
   login: {
     fontSize: 14,
-    color: "#666",
+    color: "rgba(255,255,255,0.8)",
   },
   loginLink: {
-    color: "#4A90E2",
+    color: "#ffffff",
     fontWeight: "600",
   },
 })

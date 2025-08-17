@@ -17,7 +17,6 @@ import {
   ActivityIndicator,
   Dimensions,
   ScrollView,
-  Image,
 } from "react-native"
 import { Ionicons } from "@expo/vector-icons"
 import { SafeAreaProvider } from "react-native-safe-area-context"
@@ -127,7 +126,7 @@ export default function LoginScreen({ navigation }) {
               </View>
             </View>
 
-            {/* Full Screen White Card */}
+            {/* Full Screen Blue Container */}
             <View style={styles.card}>
               <KeyboardAvoidingView
                 behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -142,20 +141,6 @@ export default function LoginScreen({ navigation }) {
                   bounces={false}
                   overScrollMode="never"
                 >
-                  {/* Logo/Picture */}
-                  <View style={styles.logoContainer}>
-                    <View style={styles.logoImageContainer}>
-                      {/* Replace with your image */}
-                      <Image 
-                        source={require('../../assets/Login/illustration.png')} // Local image
-                        // OR
-                        // source={{ uri: 'https://your-image-url.com/image.png' }} // Remote image
-                        style={styles.logoImage}
-                        resizeMode="contain"
-                      />
-                    </View>
-                  </View>
-
                   {/* Login title */}
                   <Text style={styles.loginTitle}>Login</Text>
 
@@ -180,9 +165,9 @@ export default function LoginScreen({ navigation }) {
                         autoCapitalize="none"
                         autoCorrect={false}
                         underlineColorAndroid="transparent"
-                        selectionColor="#4A90E2"
+                        selectionColor="#ffffffff"
                         textContentType="emailAddress"
-                        placeholderTextColor="#999"
+                        placeholderTextColor="#ffffffff"
                         accessibilityLabel="Email input"
                         accessibilityHint="Enter your email address"
                         returnKeyType="next"
@@ -201,7 +186,7 @@ export default function LoginScreen({ navigation }) {
                         passwordError && styles.inputError,
                       ]}
                     >
-                      <Ionicons name="lock-closed-outline" size={20} color="#666" style={styles.inputIcon} />
+                      <Ionicons name="lock-closed-outline" size={20} color="#ffffffff" style={styles.inputIcon} />
                       <TextInput
                         style={styles.input}
                         placeholder="Enter your password"
@@ -214,9 +199,9 @@ export default function LoginScreen({ navigation }) {
                         onBlur={() => setPasswordFocused(false)}
                         secureTextEntry={secureText}
                         underlineColorAndroid="transparent"
-                        selectionColor="#4A90E2"
+                        selectionColor="#ffffffff"
                         textContentType="password"
-                        placeholderTextColor="#999"
+                        placeholderTextColor="#ffffffff"
                         accessibilityLabel="Password input"
                         accessibilityHint="Enter your password"
                         returnKeyType="done"
@@ -278,15 +263,15 @@ export default function LoginScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#4A90E2",
+    backgroundColor: "#3F8FBA",
   },
   mainContainer: {
     flex: 1,
   },
   header: {
-    backgroundColor: "#4A90E2",
+    backgroundColor: "#3F8FBA",
     paddingTop: Platform.OS === "ios" ? 20 : 40,
-    paddingBottom: 40,
+    paddingBottom: 17,
     paddingHorizontal: 24,
   },
   headerContent: {
@@ -296,67 +281,32 @@ const styles = StyleSheet.create({
     fontSize: 32,
     color: "#fff",
     fontWeight: "700",
-    marginBottom: 4,
+    marginBottom: 0,
+    marginTop: 40,
   },
   welcome: {
     fontSize: 18,
     color: "#fff",
     opacity: 0.9,
+    marginBottom: 40,
   },
   brand: {
     fontWeight: "700",
   },
   card: {
     flex: 1,
-    backgroundColor: "#fff",
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: -2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 5,
+    backgroundColor: "#3F8FBA",
   },
   scrollContent: {
     paddingHorizontal: 24,
     paddingTop: 32,
     paddingBottom: 24,
   },
-  logoContainer: {
-    alignItems: "center",
-    marginBottom: 8, // Reduced from 16 to compensate for larger logo
-  },
-  logoImageContainer: {
-    width: 140, // Increased from 120
-    height: 140, // Increased from 120
-    backgroundColor: "#ffffff",
-    borderRadius: 70, // Half of width/height
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 3,
-    borderColor: "#ffffff",
-    shadowColor: "#ffffff",
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 5,
-  },
-  logoImage: {
-    width: 100, // Increased from 80
-    height: 100, // Increased from 80
-    borderRadius: 50, // Half of width/height
-  },
   loginTitle: {
     textAlign: "center",
     fontWeight: "600",
     fontSize: 24,
-    color: "#4A90E2",
+    color: "#ffffff",
     marginBottom: 32,
   },
   inputContainer: {
@@ -365,34 +315,35 @@ const styles = StyleSheet.create({
   label: {
     fontWeight: "600",
     fontSize: 16,
-    color: "#333",
+    color: "#ffffff",
     marginBottom: 8,
   },
   inputWrapper: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#F8F9FA",
+    backgroundColor: "rgba(255, 255, 255, 0.15)",
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: "#E9ECEF",
+    borderColor: "rgba(255, 255, 255, 0.2)",
     paddingHorizontal: 16,
     minHeight: 52,
   },
   inputFocused: {
-    borderColor: "#4A90E2",
-    backgroundColor: "#F0F7FF",
+    borderColor: "#ffffff",
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
   },
   inputError: {
     borderColor: "#FF6B6B",
-    backgroundColor: "#FFF5F5",
+    backgroundColor: "rgba(255, 107, 107, 0.1)",
   },
   inputIcon: {
     marginRight: 12,
+    color: "#ffffff",
   },
   input: {
     flex: 1,
     fontSize: 16,
-    color: "#333",
+    color: "#ffffff",
     paddingVertical: 0,
     borderWidth: 0,
     borderBottomWidth: 0,
@@ -403,9 +354,10 @@ const styles = StyleSheet.create({
   eyeIcon: {
     padding: 4,
     marginLeft: 8,
+    
   },
   errorText: {
-    color: "#FF6B6B",
+    color: "#FFD6D6",
     fontSize: 14,
     marginTop: 4,
     marginLeft: 4,
@@ -415,18 +367,18 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   forgot: {
-    color: "#4A90E2",
+    color: "#ffffff",
     fontSize: 14,
     fontWeight: "500",
   },
   loginButton: {
-    backgroundColor: "#4A90E2",
+    backgroundColor: "#ffffffff",
     paddingVertical: 16,
     borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
     minHeight: 52,
-    shadowColor: "#4A90E2",
+    shadowColor: "#000",
     shadowOffset: {
       width: 0,
       height: 4,
@@ -439,7 +391,7 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   loginButtonText: {
-    color: "#fff",
+    color: "#3F8FBA",
     fontWeight: "600",
     fontSize: 16,
   },
@@ -449,10 +401,11 @@ const styles = StyleSheet.create({
   },
   signup: {
     fontSize: 14,
-    color: "#666",
+    color: "#ffffff",
   },
   signupLink: {
-    color: "#4A90E2",
+    color: "#ffffff",
     fontWeight: "600",
+    textDecorationLine: "underline",
   },
 })

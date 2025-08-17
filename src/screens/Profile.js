@@ -6,7 +6,7 @@ import Navbar from "../navigations/navbar"
 
 const { width } = Dimensions.get("window")
 
-export default function HomeScreen({ navigation }) {
+export default function Profile({ navigation }) {
   const [selectedService, setSelectedService] = useState(null)
 
   const handleBookNow = () => {
@@ -31,8 +31,11 @@ export default function HomeScreen({ navigation }) {
   }
 
   const handleSeeAllPress = () => {
-    console.log("See All clicked")
-    // navigation.navigate("AllServices") // replace with your target screen
+    if (navigation) {
+      navigation.navigate("ServicesScreen")
+    } else {
+      console.log("Navigate to Services Screen")
+    }
   }
 
   return (
@@ -57,7 +60,13 @@ export default function HomeScreen({ navigation }) {
           </View>
         </View>
 
-        <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        <ScrollView 
+          style={styles.content} 
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.scrollContent}
+          bounces={true}
+          scrollEventThrottle={16}
+        >
           {/* Main Card */}
           <View style={styles.mainCard}>
             <View style={styles.cardContent}>
@@ -242,7 +251,10 @@ const styles = StyleSheet.create({
     backgroundColor: "#f8f9fa",
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
+  },
+  scrollContent: {
     paddingTop: 20,
+    paddingBottom: 20,
   },
   mainCard: {
     backgroundColor: "#E8F4FD",
@@ -416,5 +428,9 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#666",
     marginLeft: 5,
+  },
+  procedureDetailText: {
+    fontSize: 14,
+    color: "#666",
   },
 })
