@@ -43,27 +43,27 @@ export default function ServicesScreen({ navigation }) {
     {
       id: "dental_filling",
       name: "Dental Filling (Pasta)",
-      image: require("../../assets/profile/image 53.png") // Replace with your image
+      image: require("../../assets/ServicesScreen/image 41.png") // Replace with your image
     },
     {
       id: "fluoride",
       name: "Fluoride Varnish",
-      image: require("../../assets/profile/image 54.png") // Replace with your image
+      image: require("../../assets/ServicesScreen/image 37.png") // Replace with your image
     },
     {
       id: "pit_fissure",
       name: "Pit and Fissure Sealant",
-      image: require("../../assets/profile/image 45.png") // Replace with your image
+      image: require("../../assets/ServicesScreen/image 35.png") // Replace with your image
     },
     {
       id: "root_canal",
       name: "Root Canal Treatment",
-      image: require("../../assets/profile/image 46.png") // Replace with your image
+      image: require("../../assets/ServicesScreen/Root.png") // Replace with your image
     },
     {
       id: "tooth_extraction",
       name: "Tooth Extraction (Odontectomy)",
-      image: require("../../assets/profile/image 53.png") // Replace with your image
+      image: require("../../assets/ServicesScreen/image 32.png") // Replace with your image
     },
     {
       id: "orthodontics",
@@ -78,17 +78,17 @@ export default function ServicesScreen({ navigation }) {
     {
       id: "gingivectomy",
       name: "Gingivectomy",
-      image: require("../../assets/profile/image 46.png") // Replace with your image
+      image: require("../../assets/ServicesScreen/image 43.png") // Replace with your image
     },
     {
       id: "frenectomy",
       name: "Frenectomy",
-      image: require("../../assets/profile/image 53.png") // Replace with your image
+      image: require("../../assets/ServicesScreen/image 42.png") // Replace with your image
     },
     {
       id: "denture",
       name: "Denture",
-      image: require("../../assets/profile/image 54.png"), // Replace with your image
+      image: require("../../assets/ServicesScreen/image 38.png"), // Replace with your image
       details: [
         "• Partial/Metal",
         "• Complete",
@@ -99,7 +99,7 @@ export default function ServicesScreen({ navigation }) {
     {
       id: "dental_crown",
       name: "Dental Crown",
-      image: require("../../assets/profile/image 45.png"), // Replace with your image
+      image: require("../../assets/ServicesScreen/image 44.png"), // Replace with your image
       details: [
         "• Jacket Crown",
         "• PFM Crown",

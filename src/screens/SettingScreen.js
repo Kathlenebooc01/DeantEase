@@ -19,7 +19,14 @@ export default function SettingsScreen({ navigation }) {
   return (
     <SafeAreaProvider>
       <SafeAreaView style={styles.container}>
-        <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        <ScrollView 
+          style={styles.content} 
+          showsVerticalScrollIndicator={true}
+          bounces={true}
+          scrollEventThrottle={16}
+          contentContainerStyle={styles.scrollContainer}
+        >
+          
           {/* Profile Section */}
           <View style={styles.profileSection}>
             <View style={styles.profileImageContainer}>
@@ -32,93 +39,95 @@ export default function SettingsScreen({ navigation }) {
             <Text style={styles.profileEmail}>claralaurent@gmail.com</Text>
           </View>
 
-          {/* Settings Section */}
-          <View style={styles.settingsSection}>
-            <Text style={styles.sectionTitle}>Settings</Text>
-            
-            {/* Account */}
-            <TouchableOpacity 
-              style={styles.menuItem}
-              onPress={() => handleMenuPress("Account")}
-            >
-              <View style={styles.menuLeft}>
-                <View style={styles.iconContainer}>
-                  <Ionicons name="person-outline" size={20} color="#666" />
-                </View>
-                <Text style={styles.menuText}>Account</Text>
+          {/* Settings Title */}
+          <Text style={styles.sectionTitle}>Settings</Text>
+          
+          {/* Account */}
+          <TouchableOpacity 
+            style={styles.menuItem}
+            onPress={() => handleMenuPress("Account")}
+          >
+            <View style={styles.menuLeft}>
+              <View style={styles.iconContainer}>
+                <Ionicons name="person-outline" size={20} color="#666" />
               </View>
-              <Ionicons name="chevron-forward-outline" size={20} color="#999" />
-            </TouchableOpacity>
+              <Text style={styles.menuText}>Account</Text>
+            </View>
+            <Ionicons name="chevron-forward-outline" size={20} color="#999" />
+          </TouchableOpacity>
 
-            {/* Notifications */}
-            <TouchableOpacity 
-              style={styles.menuItem}
-              onPress={() => handleMenuPress("Notifications")}
-            >
-              <View style={styles.menuLeft}>
-                <View style={styles.iconContainer}>
-                  <Ionicons name="notifications-outline" size={20} color="#666" />
-                </View>
-                <Text style={styles.menuText}>Notifications</Text>
+          {/* Notifications */}
+          <TouchableOpacity 
+            style={styles.menuItem}
+            onPress={() => handleMenuPress("Notifications")}
+          >
+            <View style={styles.menuLeft}>
+              <View style={styles.iconContainer}>
+                <Ionicons name="notifications-outline" size={20} color="#666" />
               </View>
-              <Ionicons name="chevron-forward-outline" size={20} color="#999" />
-            </TouchableOpacity>
+              <Text style={styles.menuText}>Notifications</Text>
+            </View>
+            <Ionicons name="chevron-forward-outline" size={20} color="#999" />
+          </TouchableOpacity>
 
-            {/* Dental History */}
-            <TouchableOpacity 
-              style={styles.menuItem}
-              onPress={() => handleMenuPress("DentalHistory")}
-            >
-              <View style={styles.menuLeft}>
-                <View style={styles.iconContainer}>
-                  <Ionicons name="time-outline" size={20} color="#666" />
-                </View>
-                <Text style={styles.menuText}>Dental History</Text>
+          {/* Dental History */}
+          <TouchableOpacity 
+            style={styles.menuItem}
+            onPress={() => handleMenuPress("DentalHistory")}
+          >
+            <View style={styles.menuLeft}>
+              <View style={styles.iconContainer}>
+                <Ionicons name="time-outline" size={20} color="#666" />
               </View>
-              <Ionicons name="chevron-forward-outline" size={20} color="#999" />
-            </TouchableOpacity>
+              <Text style={styles.menuText}>Dental History</Text>
+            </View>
+            <Ionicons name="chevron-forward-outline" size={20} color="#999" />
+          </TouchableOpacity>
 
-            {/* Terms and Policies */}
-            <TouchableOpacity 
-              style={styles.menuItem}
-              onPress={() => handleMenuPress("TermsAndPolicies")}
-            >
-              <View style={styles.menuLeft}>
-                <View style={styles.iconContainer}>
-                  <Ionicons name="document-text-outline" size={20} color="#666" />
-                </View>
-                <Text style={styles.menuText}>Terms and Policies</Text>
+          {/* Terms and Policies */}
+          <TouchableOpacity 
+            style={styles.menuItem}
+            onPress={() => handleMenuPress("TermsAndPolicies")}
+          >
+            <View style={styles.menuLeft}>
+              <View style={styles.iconContainer}>
+                <Ionicons name="document-text-outline" size={20} color="#666" />
               </View>
-              <Ionicons name="chevron-forward-outline" size={20} color="#999" />
-            </TouchableOpacity>
+              <Text style={styles.menuText}>Terms and Policies</Text>
+            </View>
+            <Ionicons name="chevron-forward-outline" size={20} color="#999" />
+          </TouchableOpacity>
 
-            {/* Contact Support */}
-            <TouchableOpacity 
-              style={styles.menuItem}
-              onPress={() => handleMenuPress("ContactSupport")}
-            >
-              <View style={styles.menuLeft}>
-                <View style={styles.iconContainer}>
-                  <Ionicons name="help-circle-outline" size={20} color="#666" />
-                </View>
-                <Text style={styles.menuText}>Contact support</Text>
+          {/* Contact Support */}
+          <TouchableOpacity 
+            style={styles.menuItem}
+            onPress={() => handleMenuPress("ContactSupport")}
+          >
+            <View style={styles.menuLeft}>
+              <View style={styles.iconContainer}>
+                <Ionicons name="help-circle-outline" size={20} color="#666" />
               </View>
-              <Ionicons name="chevron-forward-outline" size={20} color="#999" />
-            </TouchableOpacity>
+              <Text style={styles.menuText}>Contact support</Text>
+            </View>
+            <Ionicons name="chevron-forward-outline" size={20} color="#999" />
+          </TouchableOpacity>
 
-            {/* Logout */}
-            <TouchableOpacity 
-              style={[styles.menuItem, styles.logoutItem]}
-              onPress={handleLogout}
-            >
-              <View style={styles.menuLeft}>
-                <View style={styles.iconContainer}>
-                  <Ionicons name="log-out-outline" size={20} color="#666" />
-                </View>
-                <Text style={styles.menuText}>Logout</Text>
+          {/* Logout */}
+          <TouchableOpacity 
+            style={[styles.menuItem, styles.logoutItem]}
+            onPress={handleLogout}
+          >
+            <View style={styles.menuLeft}>
+              <View style={styles.iconContainer}>
+                <Ionicons name="log-out-outline" size={20} color="#666" />
               </View>
-            </TouchableOpacity>
-          </View>
+              <Text style={styles.menuText}>Logout</Text>
+            </View>
+          </TouchableOpacity>
+
+          {/* Extra space at bottom for better scrolling */}
+          <View style={styles.bottomSpacer} />
+
         </ScrollView>
 
         <Navbar navigation={navigation} activeTab="Settings" />
@@ -130,20 +139,22 @@ export default function SettingsScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f5f5f5",
+    backgroundColor: "#fff",
   },
   content: {
     flex: 1,
-    paddingBottom: 100,
+  },
+  scrollContainer: {
+    paddingHorizontal: 20,
+    paddingBottom: 120, // Increased bottom padding for navbar clearance
+    flexGrow: 1,
   },
   profileSection: {
     alignItems: "center",
-    paddingVertical: 40,
-    paddingHorizontal: 20,
-    backgroundColor: "#fff",
+    paddingVertical: 90,
   },
   profileImageContainer: {
-    marginBottom: 16,
+    marginBottom: 15,
   },
   profileImage: {
     width: 80,
@@ -161,18 +172,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#666",
   },
-  settingsSection: {
-    backgroundColor: "#fff",
-    marginTop: 20,
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 10,
-  },
   sectionTitle: {
     fontSize: 18,
     fontWeight: "600",
     color: "#333",
     marginBottom: 20,
+    marginTop: -20,
   },
   menuItem: {
     flexDirection: "row",
@@ -197,5 +202,8 @@ const styles = StyleSheet.create({
   menuText: {
     fontSize: 16,
     color: "#333",
+  },
+  bottomSpacer: {
+    height: 20,
   },
 })

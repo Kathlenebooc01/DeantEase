@@ -73,9 +73,16 @@ export default function Profile({ navigation }) {
               <View style={styles.doctorImageContainer}>
                 <Image source={require("../../assets/profile/doctor.png")} style={styles.doctorImage} />
               </View>
-              <TouchableOpacity style={styles.bookButton} onPress={handleBookNow}>
-                <Text style={styles.bookButtonText}>Book Now</Text>
-              </TouchableOpacity>
+              <View style={styles.bookingSection}>
+                <View style={styles.bookingTextContainer}>
+                  <Text style={styles.bookingTitle}>Dental Care You Can Trust </Text>
+                  <Text style={styles.bookingSubtitle}>Instant services and visible results all in one visit.</Text>
+                  
+                </View>
+                <TouchableOpacity style={styles.bookButton} onPress={handleBookNow}>
+                  <Text style={styles.bookButtonText}>Book Now</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
 
@@ -263,38 +270,79 @@ const styles = StyleSheet.create({
     padding: 20,
     marginBottom: 10,
     alignItems: "center",
-    minHeight: 100,
+    minHeight: 180,
   },
   cardContent: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     width: "100%",
-    marginBottom: -10,
-    marginTop: -20,
     flex: 1,
   },
   doctorImageContainer: {
     flex: 1,
     alignItems: "flex-start",
-    justifyContent: "flex-start",
-    paddingTop: 0,
+    justifyContent: "center",
+    paddingLeft: 0,
+    marginLeft: -10,
   },
   doctorImage: {
-    width: 170,
-    height: 180,
-    marginBottom: 0,
-    marginTop: 0,
-    resizeMode: "cover",
+    width: 230,
+    height: 190,
+    resizeMode: "contain",
+    marginLeft: -50,
+    marginBottom: -10,
+    marginTop: -20,
+  },
+  bookingSection: {
+    flex: 1,
+    alignItems: "flex-start",
+    justifyContent: "center",
+    paddingLeft: 0,
+    marginLeft: 10,
+  },
+  bookingTextContainer: {
+    alignItems: "flex-start",
+    marginBottom: 15,
+    maxWidth: 180,
+  },
+  bookingTitle: {
+    marginLeft: -57,
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#000000ff",
+    textAlign: "center",
+    marginBottom: 8,
+  },
+  bookingSubtitle: {
+    fontSize: 12,
+    marginLeft: -50,
+    fontWeight: "400",
+    color: "#000000ff",
+    textAlign: "center",
+    marginBottom: 5,
+    lineHeight: 16,
+  },
+  bookingDescription: {
+    fontSize: 12,
+    color: "#666",
+    textAlign: "left",
+    lineHeight: 16,
+    maxWidth: 120,
   },
   bookButton: {
     backgroundColor: "#4A90E2",
     paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 20,
-    position: "absolute",
-    right: 10,
-    top: 75,
+    paddingVertical: 12,
+    borderRadius: 25,
+    shadowColor: "#4A90E2",
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 5,
   },
   bookButtonText: {
     color: "#fff",

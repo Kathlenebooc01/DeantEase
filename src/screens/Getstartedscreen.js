@@ -63,15 +63,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   logo: {
-    width: 200,
+    width: 120,
     height: 200,
     marginBottom: 190,
+    marginLeft: 25,
+    marginTop: -50,
   },
   illustration: {
     width: '100%',
     height: 250,
     marginBottom: 20,
     marginTop: -250,
+    marginLeft: 25,
   },
   title: {
     fontSize: 20,
@@ -82,7 +85,7 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: 14,
-    color: '#e5e7eb',
+    color: '#000000ff',
     textAlign: 'center',
     marginBottom: 30,
     paddingHorizontal: 15,

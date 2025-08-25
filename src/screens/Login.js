@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef, useEffect } from "react"
+import { useState, useRef } from "react"
 import {
   View,
   Text,
@@ -17,6 +17,7 @@ import {
   ActivityIndicator,
   Dimensions,
   ScrollView,
+  Image,
 } from "react-native"
 import { Ionicons } from "@expo/vector-icons"
 import { SafeAreaProvider } from "react-native-safe-area-context"
@@ -85,7 +86,7 @@ export default function LoginScreen({ navigation }) {
     // Simulate API call
     setTimeout(() => {
       setIsLoading(false)
-      
+
       // Navigate to Profile screen after successful login
       if (navigation) {
         navigation.navigate("Profile")
@@ -115,145 +116,146 @@ export default function LoginScreen({ navigation }) {
     <SafeAreaProvider>
       <SafeAreaView style={styles.container}>
         <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-          <View style={styles.mainContainer}>
-            {/* Header Section */}
-            <View style={styles.header}>
+          <KeyboardAvoidingView
+            behavior={Platform.OS === "ios" ? "padding" : "height"}
+            style={styles.mainContainer}
+            keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 0}
+          >
+            <ScrollView
+              style={styles.scrollView}
+              contentContainerStyle={styles.scrollContent}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+              bounces={false}
+              overScrollMode="never"
+            >
+              {/* Header Content - Now Scrollable */}
               <View style={styles.headerContent}>
                 <Text style={styles.hello}>Hello!</Text>
                 <Text style={styles.welcome}>
                   Welcome to <Text style={styles.brand}>DentEase</Text>
                 </Text>
               </View>
-            </View>
 
-            {/* Full Screen Blue Container */}
-            <View style={styles.card}>
-              <KeyboardAvoidingView
-                behavior={Platform.OS === "ios" ? "padding" : "height"}
-                style={{ flex: 1 }}
-                keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 0}
-              >
-                <ScrollView
-                  style={{ flex: 1 }}
-                  contentContainerStyle={styles.scrollContent}
-                  keyboardShouldPersistTaps="handled"
-                  showsVerticalScrollIndicator={false}
-                  bounces={false}
-                  overScrollMode="never"
+              <View style={styles.imageContainer}>
+                <Image
+                  source={require('../../assets/Login/t.png')}
+                  style={styles.logoImage}
+                  resizeMode="contain"
+                />
+              </View>
+
+              {/* Login title */}
+              <Text style={styles.loginTitle}>Login</Text>
+
+              {/* Email Input */}
+              <View style={styles.inputContainer}>
+                <Text style={styles.label}>Email</Text>
+                <View
+                  style={[
+                    styles.inputWrapper,
+                    emailFocused && styles.inputFocused,
+                    emailError && styles.inputError,
+                  ]}
                 >
-                  {/* Login title */}
-                  <Text style={styles.loginTitle}>Login</Text>
+                  <Ionicons name="mail-outline" size={20} color="#666" style={styles.inputIcon} />
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Enter your email"
+                    value={email}
+                    onChangeText={(text) => {
+                      setEmail(text)
+                      if (emailError) setEmailError("")
+                    }}
+                    onFocus={() => setEmailFocused(true)}
+                    onBlur={() => setEmailFocused(false)}
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    underlineColorAndroid="transparent"
+                    selectionColor="#ffffffff"
+                    textContentType="emailAddress"
+                    placeholderTextColor="#ffffffff"
+                    accessibilityLabel="Email input"
+                    accessibilityHint="Enter your email address"
+                    returnKeyType="next"
+                  />
+                </View>
+                {emailError ? <Text style={styles.errorText}>{emailError}</Text> : null}
+              </View>
 
-                  {/* Email Input */}
-                  <View style={styles.inputContainer}>
-                    <Text style={styles.label}>Email</Text>
-                    <View
-                      style={[styles.inputWrapper, emailFocused && styles.inputFocused, emailError && styles.inputError]}
-                    >
-                      <Ionicons name="mail-outline" size={20} color="#666" style={styles.inputIcon} />
-                      <TextInput
-                        style={styles.input}
-                        placeholder="Enter your email"
-                        value={email}
-                        onChangeText={(text) => {
-                          setEmail(text)
-                          if (emailError) setEmailError("")
-                        }}
-                        onFocus={() => setEmailFocused(true)}
-                        onBlur={() => setEmailFocused(false)}
-                        keyboardType="email-address"
-                        autoCapitalize="none"
-                        autoCorrect={false}
-                        underlineColorAndroid="transparent"
-                        selectionColor="#ffffffff"
-                        textContentType="emailAddress"
-                        placeholderTextColor="#ffffffff"
-                        accessibilityLabel="Email input"
-                        accessibilityHint="Enter your email address"
-                        returnKeyType="next"
-                      />
-                    </View>
-                    {emailError ? <Text style={styles.errorText}>{emailError}</Text> : null}
-                  </View>
-
-                  {/* Password Input */}
-                  <View style={styles.inputContainer}>
-                    <Text style={styles.label}>Password</Text>
-                    <View
-                      style={[
-                        styles.inputWrapper,
-                        passwordFocused && styles.inputFocused,
-                        passwordError && styles.inputError,
-                      ]}
-                    >
-                      <Ionicons name="lock-closed-outline" size={20} color="#ffffffff" style={styles.inputIcon} />
-                      <TextInput
-                        style={styles.input}
-                        placeholder="Enter your password"
-                        value={password}
-                        onChangeText={(text) => {
-                          setPassword(text)
-                          if (passwordError) setPasswordError("")
-                        }}
-                        onFocus={() => setPasswordFocused(true)}
-                        onBlur={() => setPasswordFocused(false)}
-                        secureTextEntry={secureText}
-                        underlineColorAndroid="transparent"
-                        selectionColor="#ffffffff"
-                        textContentType="password"
-                        placeholderTextColor="#ffffffff"
-                        accessibilityLabel="Password input"
-                        accessibilityHint="Enter your password"
-                        returnKeyType="done"
-                        onSubmitEditing={handleLogin}
-                      />
-                      <TouchableOpacity
-                        onPress={() => setSecureText(!secureText)}
-                        style={styles.eyeIcon}
-                        accessibilityLabel={secureText ? "Show password" : "Hide password"}
-                      >
-                        <Ionicons name={secureText ? "eye-off-outline" : "eye-outline"} size={20} color="#666" />
-                      </TouchableOpacity>
-                    </View>
-                    {passwordError ? <Text style={styles.errorText}>{passwordError}</Text> : null}
-                  </View>
-
-                  {/* Forgot Password */}
-                  <TouchableOpacity onPress={handleForgotPassword} style={styles.forgotContainer}>
-                    <Text style={styles.forgot}>Forgot password?</Text>
-                  </TouchableOpacity>
-
-                  {/* Login Button */}
-                  <Animated.View style={{ transform: [{ scale: buttonScale }] }}>
-                    <TouchableOpacity
-                      style={[styles.loginButton, isLoading && styles.loginButtonDisabled]}
-                      onPress={handleLogin}
-                      disabled={isLoading}
-                      accessibilityLabel="Login button"
-                      accessibilityHint="Tap to login with your credentials"
-                    >
-                      {isLoading ? (
-                        <ActivityIndicator color="#fff" size="small" />
-                      ) : (
-                        <Text style={styles.loginButtonText}>Login</Text>
-                      )}
-                    </TouchableOpacity>
-                  </Animated.View>
-
-                  {/* Sign up link */}
-                  <TouchableOpacity 
-                    onPress={handleSignUp} 
-                    style={styles.signupContainer}
-                    activeOpacity={0.7}
+              {/* Password Input */}
+              <View style={styles.inputContainer}>
+                <Text style={styles.label}>Password</Text>
+                <View
+                  style={[
+                    styles.inputWrapper,
+                    passwordFocused && styles.inputFocused,
+                    passwordError && styles.inputError,
+                  ]}
+                >
+                  <Ionicons name="lock-closed-outline" size={20} color="#ffffffff" style={styles.inputIcon} />
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Enter your password"
+                    value={password}
+                    onChangeText={(text) => {
+                      setPassword(text)
+                      if (passwordError) setPasswordError("")
+                    }}
+                    onFocus={() => setPasswordFocused(true)}
+                    onBlur={() => setPasswordFocused(false)}
+                    secureTextEntry={secureText}
+                    underlineColorAndroid="transparent"
+                    selectionColor="#ffffffff"
+                    textContentType="password"
+                    placeholderTextColor="#ffffffff"
+                    accessibilityLabel="Password input"
+                    accessibilityHint="Enter your password"
+                    returnKeyType="done"
+                    onSubmitEditing={handleLogin}
+                  />
+                  <TouchableOpacity
+                    onPress={() => setSecureText(!secureText)}
+                    style={styles.eyeIcon}
+                    accessibilityLabel={secureText ? "Show password" : "Hide password"}
                   >
-                    <Text style={styles.signup}>
-                      Don't have an account? <Text style={styles.signupLink}>Sign up here</Text>
-                    </Text>
+                    <Ionicons name={secureText ? "eye-off-outline" : "eye-outline"} size={20} color="#666" />
                   </TouchableOpacity>
-                </ScrollView>
-              </KeyboardAvoidingView>
-            </View>
-          </View>
+                </View>
+                {passwordError ? <Text style={styles.errorText}>{passwordError}</Text> : null}
+              </View>
+
+              {/* Forgot Password */}
+              <TouchableOpacity onPress={handleForgotPassword} style={styles.forgotContainer}>
+                <Text style={styles.forgot}>Forgot password?</Text>
+              </TouchableOpacity>
+
+              {/* Login Button */}
+              <Animated.View style={{ transform: [{ scale: buttonScale }] }}>
+                <TouchableOpacity
+                  style={[styles.loginButton, isLoading && styles.loginButtonDisabled]}
+                  onPress={handleLogin}
+                  disabled={isLoading}
+                  accessibilityLabel="Login button"
+                  accessibilityHint="Tap to login with your credentials"
+                >
+                  {isLoading ? (
+                    <ActivityIndicator color="#fff" size="small" />
+                  ) : (
+                    <Text style={styles.loginButtonText}>Login</Text>
+                  )}
+                </TouchableOpacity>
+              </Animated.View>
+
+              {/* Sign up link */}
+              <TouchableOpacity onPress={handleSignUp} style={styles.signupContainer} activeOpacity={0.7}>
+                <Text style={styles.signup}>
+                  Don't have an account? <Text style={styles.signupLink}>Sign up here</Text>
+                </Text>
+              </TouchableOpacity>
+            </ScrollView>
+          </KeyboardAvoidingView>
         </TouchableWithoutFeedback>
       </SafeAreaView>
     </SafeAreaProvider>
@@ -268,39 +270,43 @@ const styles = StyleSheet.create({
   mainContainer: {
     flex: 1,
   },
-  header: {
-    backgroundColor: "#3F8FBA",
-    paddingTop: Platform.OS === "ios" ? 20 : 40,
-    paddingBottom: 17,
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
     paddingHorizontal: 24,
+    paddingTop: Platform.OS === "ios" ? 60 : 80,
+    paddingBottom: 24,
   },
   headerContent: {
-    marginTop: 20,
+    marginBottom: 60,
   },
   hello: {
     fontSize: 32,
     color: "#fff",
     fontWeight: "700",
-    marginBottom: 0,
-    marginTop: 40,
+    marginBottom: 8,
+    fontFamily: "System",
   },
   welcome: {
     fontSize: 18,
     color: "#fff",
     opacity: 0.9,
-    marginBottom: 40,
+    marginBottom: 24,
   },
   brand: {
     fontWeight: "700",
   },
-  card: {
-    flex: 1,
-    backgroundColor: "#3F8FBA",
+  imageContainer: {
+    alignItems: "center",
+    marginBottom: 24,
   },
-  scrollContent: {
-    paddingHorizontal: 24,
-    paddingTop: 32,
-    paddingBottom: 24,
+  logoImage: {
+    marginBottom: -40,
+    marginTop: -50,
+    width: 150,
+    height: 150,
+    tintColor: "#ffffff",
   },
   loginTitle: {
     textAlign: "center",
@@ -354,7 +360,6 @@ const styles = StyleSheet.create({
   eyeIcon: {
     padding: 4,
     marginLeft: 8,
-    
   },
   errorText: {
     color: "#FFD6D6",
