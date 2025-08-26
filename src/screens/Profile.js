@@ -1,7 +1,8 @@
-import { useState } from "react"
+import { useState, useCallback } from "react"
 import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, ScrollView, Image, Dimensions } from "react-native"
 import { Ionicons } from "@expo/vector-icons"
 import { SafeAreaProvider } from "react-native-safe-area-context"
+import { useFocusEffect } from '@react-navigation/native'
 import Navbar from "../navigations/navbar"
 
 const { width } = Dimensions.get("window")
@@ -9,11 +10,20 @@ const { width } = Dimensions.get("window")
 export default function Profile({ navigation }) {
   const [selectedService, setSelectedService] = useState(null)
 
+  // Reset header configuration when screen is focused
+  useFocusEffect(
+    useCallback(() => {
+      navigation.setOptions({
+        headerShown: false,
+      });
+    }, [navigation])
+  );
+
   const handleBookNow = () => {
     if (navigation) {
-      navigation.navigate("Booking")
+      navigation.navigate("AppointmentScreen")
     } else {
-      console.log("Navigate to Booking screen")
+      console.log("Navigate to AppointmentScreen")
     }
   }
 
@@ -38,6 +48,25 @@ export default function Profile({ navigation }) {
     }
   }
 
+  // Add notification handler
+  const handleNotificationPress = () => {
+    if (navigation) {
+      navigation.navigate("NotificationScreen")
+    } else {
+      console.log("Navigate to Notification Screen")
+    }
+  }
+
+  // Add finish appointment handler
+  const handleFinishAppointment = () => {
+    console.log("Finish appointment pressed")
+    if (navigation) {
+      navigation.navigate("FeedbackScreen")
+    } else {
+      console.log("Navigate to FeedbackScreen")
+    }
+  }
+
   return (
     <SafeAreaProvider>
       <SafeAreaView style={styles.container}>
@@ -54,7 +83,7 @@ export default function Profile({ navigation }) {
             <TouchableOpacity style={styles.iconButton}>
               <Ionicons name="search-outline" size={24} color="#fff" />
             </TouchableOpacity>
-            <TouchableOpacity style={styles.iconButton}>
+            <TouchableOpacity style={styles.iconButton} onPress={handleNotificationPress}>
               <Ionicons name="notifications-outline" size={24} color="#fff" />
             </TouchableOpacity>
           </View>
@@ -191,6 +220,16 @@ export default function Profile({ navigation }) {
                     </View>
                   </View>
                 </View>
+                
+                {/* Finish Button */}
+                <View style={styles.finishButtonContainer}>
+                  <TouchableOpacity 
+                    style={styles.finishButton} 
+                    onPress={handleFinishAppointment}
+                  >
+                    <Text style={styles.finishButtonText}>Finish</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
             </TouchableOpacity>
           </View>
@@ -207,13 +246,15 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#1290D5",
   },
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: 25,
-    paddingTop: 10,
-    paddingBottom: 20,
+ header: {
+  flexDirection: "row",
+  justifyContent: "space-between",
+  alignItems: "center",
+  paddingHorizontal: 25,
+  paddingTop: 20,   // use SafeArea instead of fixed 60
+  paddingBottom: 20,
+  height: 120,      // keep a consistent height
+  backgroundColor: "#1290D5", // explicitly set
   },
   userInfo: {
     flexDirection: "row",
@@ -225,8 +266,6 @@ const styles = StyleSheet.create({
     borderRadius: 25,
     marginRight: 12,
     backgroundColor: "#fff",
-    marginBottom: 0,
-    marginTop: 60,
   },
   userText: {
     justifyContent: "center",
@@ -236,7 +275,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     opacity: 0.9,
     marginBottom: 0,
-    marginTop: 60,
   },
   userName: {
     color: "#fff",
@@ -250,14 +288,13 @@ const styles = StyleSheet.create({
   iconButton: {
     marginLeft: 15,
     padding: 5,
-    marginBottom: 0,
-    marginTop: 50,
   },
   content: {
-    flex: 1,
-    backgroundColor: "#f8f9fa",
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+  flex: 1,
+  backgroundColor: "#f8f9fa",
+  borderTopLeftRadius: 20,
+  borderTopRightRadius: 20,
+  marginTop: -18,   // pull content up to overlap the blue header nicely
   },
   scrollContent: {
     paddingTop: 20,
@@ -480,5 +517,29 @@ const styles = StyleSheet.create({
   procedureDetailText: {
     fontSize: 14,
     color: "#666",
+  },
+  // New styles for the Finish button
+  finishButtonContainer: {
+    alignItems: "flex-end",
+    marginTop: 15,
+  },
+  finishButton: {
+    backgroundColor: "#4A90E2",
+    paddingHorizontal: 20,
+    paddingVertical: 8,
+    borderRadius: 20,
+    shadowColor: "#4A90E2",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  finishButtonText: {
+    color: "#fff",
+    fontWeight: "600",
+    fontSize: 14,
   },
 })

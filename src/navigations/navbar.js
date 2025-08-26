@@ -4,14 +4,25 @@ import { Ionicons } from "@expo/vector-icons"
 export default function Navbar({ navigation, activeTab = "Home" }) {
   const handleNavigation = (screen) => {
     if (navigation) {
-      // Navigate to Profile when Home is clicked
-      if (screen === "Home") {
-        navigation.navigate("Profile")
-      } else {
-        navigation.navigate(screen)
+      // Navigate to the correct screens with proper screen names
+      switch (screen) {
+        case "Home":
+          navigation.navigate("Profile") // Keep this as Profile if that's your home screen
+          break
+        case "Appointment":
+          navigation.navigate("AppointmentScreen")
+          break
+        case "Message":
+          navigation.navigate("Message")
+          break
+        case "Settings":
+          navigation.navigate("SettingsScreen")
+          break
+        default:
+          navigation.navigate(screen)
       }
     } else {
-      console.log("Navigate to:", screen === "Home" ? "Profile" : screen)
+      console.log("Navigate to:", screen)
     }
   }
 
@@ -58,7 +69,7 @@ export default function Navbar({ navigation, activeTab = "Home" }) {
 
       <TouchableOpacity
         style={[styles.navItem, activeTab === "Settings" && styles.activeNavItem]}
-        onPress={() => handleNavigation("SettingsScreen")}
+        onPress={() => handleNavigation("Settings")}
       >
         <Ionicons 
           name={activeTab === "Settings" ? "person" : "person-outline"} 
@@ -95,6 +106,8 @@ const styles = StyleSheet.create({
     elevation: 8,
     borderWidth: 1,
     borderColor: "#F3F4F6",
+    // Add fixed height to prevent size changes
+    height: 70,
   },
   navItem: {
     alignItems: "center",
@@ -104,6 +117,8 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     minWidth: 60,
     position: "relative",
+    // Add fixed height for consistency
+    height: 50,
   },
   activeNavItem: {
     backgroundColor: "transparent",
@@ -116,7 +131,7 @@ const styles = StyleSheet.create({
   },
   activeIndicator: {
     position: "absolute",
-    bottom: -2,
+    bottom: 2, // Changed from -2 to 2 for better positioning
     width: 4,
     height: 4,
     backgroundColor: "#4A90E2",
