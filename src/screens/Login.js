@@ -13,7 +13,6 @@ import {
   TouchableWithoutFeedback,
   Keyboard,
   Animated,
-  Alert,
   ActivityIndicator,
   Dimensions,
   ScrollView,
@@ -21,6 +20,10 @@ import {
 } from "react-native"
 import { Ionicons } from "@expo/vector-icons"
 import { SafeAreaProvider } from "react-native-safe-area-context"
+
+// Step 1: Import Firebase Auth and the auth object from your config
+import { signInWithEmailAndPassword } from "firebase/auth";
+import { auth, db } from '../config/firebaseConfig'; // This is the correct relative path
 
 const { width, height } = Dimensions.get("window")
 
@@ -33,6 +36,8 @@ export default function LoginScreen({ navigation }) {
   const [passwordFocused, setPasswordFocused] = useState(false)
   const [emailError, setEmailError] = useState("")
   const [passwordError, setPasswordError] = useState("")
+  const [generalError, setGeneralError] = useState(""); // State for general login errors
+
 
   // Button animation only
   const buttonScale = useRef(new Animated.Value(1)).current
@@ -42,12 +47,15 @@ export default function LoginScreen({ navigation }) {
     return emailRegex.test(email)
   }
 
+  // Step 2: Update the handleLogin function to use Firebase
   const handleLogin = async () => {
     // Reset errors
     setEmailError("")
     setPasswordError("")
+    setGeneralError("")
 
-    // Validation
+
+    // --- Form Validation (Good practice, keep this) ---
     let hasError = false
     if (!email.trim()) {
       setEmailError("Email is required")
@@ -67,7 +75,7 @@ export default function LoginScreen({ navigation }) {
 
     if (hasError) return
 
-    // Button press animation
+    // --- Button Animation (Good practice, keep this) ---
     Animated.sequence([
       Animated.timing(buttonScale, {
         toValue: 0.95,
@@ -83,18 +91,35 @@ export default function LoginScreen({ navigation }) {
 
     setIsLoading(true)
 
-    // Simulate API call
-    setTimeout(() => {
-      setIsLoading(false)
+    // --- Firebase Authentication Logic ---
+    try {
+      // This function attempts to sign in the user with Firebase
+      await signInWithEmailAndPassword(auth, email, password);
 
-      // Navigate to Profile screen after successful login
+      // If the above line doesn't throw an error, the login is successful.
+      console.log("User logged in successfully!");
+
+      // Navigate to the Profile screen after successful login
       if (navigation) {
-        navigation.navigate("Profile")
+        navigation.navigate("Profile");
       } else {
-        console.log("Navigate to Profile screen")
-        Alert.alert("Success", "Login successful! Navigating to Profile...")
+        console.log("Navigate to Profile screen");
       }
-    }, 2000)
+
+    } catch (error) {
+      // This block runs if Firebase returns an error
+      console.error("Firebase Login Error:", error.code, error.message);
+
+      // Provide user-friendly feedback based on the error code
+      if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
+        setGeneralError("Invalid email or password. Please try again.");
+      } else {
+        setGeneralError("An unexpected error occurred. Please try again later.");
+      }
+    } finally {
+      // This will run whether the login was successful or not
+      setIsLoading(false);
+    }
   }
 
   const handleForgotPassword = () => {
@@ -102,13 +127,10 @@ export default function LoginScreen({ navigation }) {
   }
 
   const handleSignUp = () => {
-    // Navigate to SignUp screen
     if (navigation) {
       navigation.navigate("SignUp")
     } else {
       console.log("Navigation to SignUp screen")
-      // For testing purposes, you can add:
-      Alert.alert("Navigation", "Would navigate to Sign Up screen")
     }
   }
 
@@ -129,7 +151,6 @@ export default function LoginScreen({ navigation }) {
               bounces={false}
               overScrollMode="never"
             >
-              {/* Header Content - Now Scrollable */}
               <View style={styles.headerContent}>
                 <Text style={styles.hello}>Hello!</Text>
                 <Text style={styles.welcome}>
@@ -138,15 +159,19 @@ export default function LoginScreen({ navigation }) {
               </View>
 
               <View style={styles.imageContainer}>
-                <Image
+                {/* Ensure you have the image at this path or replace it */}
+                {/* <Image
                   source={require('../../assets/Login/t.png')}
                   style={styles.logoImage}
                   resizeMode="contain"
-                />
+                /> */}
               </View>
 
-              {/* Login title */}
               <Text style={styles.loginTitle}>Login</Text>
+
+              {/* Display general error message here */}
+              {generalError ? <Text style={styles.generalErrorText}>{generalError}</Text> : null}
+
 
               {/* Email Input */}
               <View style={styles.inputContainer}>
@@ -158,7 +183,7 @@ export default function LoginScreen({ navigation }) {
                     emailError && styles.inputError,
                   ]}
                 >
-                  <Ionicons name="mail-outline" size={20} color="#666" style={styles.inputIcon} />
+                  <Ionicons name="mail-outline" size={20} color="#ffffffff" style={styles.inputIcon} />
                   <TextInput
                     style={styles.input}
                     placeholder="Enter your email"
@@ -166,6 +191,7 @@ export default function LoginScreen({ navigation }) {
                     onChangeText={(text) => {
                       setEmail(text)
                       if (emailError) setEmailError("")
+                      if (generalError) setGeneralError("")
                     }}
                     onFocus={() => setEmailFocused(true)}
                     onBlur={() => setEmailFocused(false)}
@@ -175,7 +201,7 @@ export default function LoginScreen({ navigation }) {
                     underlineColorAndroid="transparent"
                     selectionColor="#ffffffff"
                     textContentType="emailAddress"
-                    placeholderTextColor="#ffffffff"
+                    placeholderTextColor="#ffffff"
                     accessibilityLabel="Email input"
                     accessibilityHint="Enter your email address"
                     returnKeyType="next"
@@ -202,6 +228,7 @@ export default function LoginScreen({ navigation }) {
                     onChangeText={(text) => {
                       setPassword(text)
                       if (passwordError) setPasswordError("")
+                      if (generalError) setGeneralError("")
                     }}
                     onFocus={() => setPasswordFocused(true)}
                     onBlur={() => setPasswordFocused(false)}
@@ -220,18 +247,16 @@ export default function LoginScreen({ navigation }) {
                     style={styles.eyeIcon}
                     accessibilityLabel={secureText ? "Show password" : "Hide password"}
                   >
-                    <Ionicons name={secureText ? "eye-off-outline" : "eye-outline"} size={20} color="#666" />
+                    <Ionicons name={secureText ? "eye-off-outline" : "eye-outline"} size={20} color="#ffffffff" />
                   </TouchableOpacity>
                 </View>
                 {passwordError ? <Text style={styles.errorText}>{passwordError}</Text> : null}
               </View>
 
-              {/* Forgot Password */}
               <TouchableOpacity onPress={handleForgotPassword} style={styles.forgotContainer}>
                 <Text style={styles.forgot}>Forgot password?</Text>
               </TouchableOpacity>
 
-              {/* Login Button */}
               <Animated.View style={{ transform: [{ scale: buttonScale }] }}>
                 <TouchableOpacity
                   style={[styles.loginButton, isLoading && styles.loginButtonDisabled]}
@@ -241,14 +266,13 @@ export default function LoginScreen({ navigation }) {
                   accessibilityHint="Tap to login with your credentials"
                 >
                   {isLoading ? (
-                    <ActivityIndicator color="#fff" size="small" />
+                    <ActivityIndicator color="#3F8FBA" size="small" />
                   ) : (
                     <Text style={styles.loginButtonText}>Login</Text>
                   )}
                 </TouchableOpacity>
               </Animated.View>
 
-              {/* Sign up link */}
               <TouchableOpacity onPress={handleSignUp} style={styles.signupContainer} activeOpacity={0.7}>
                 <Text style={styles.signup}>
                   Don't have an account? <Text style={styles.signupLink}>Sign up here</Text>
@@ -263,6 +287,7 @@ export default function LoginScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
+  // ... (Your existing styles remain unchanged)
   container: {
     flex: 1,
     backgroundColor: "#3F8FBA",
@@ -277,9 +302,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingTop: Platform.OS === "ios" ? 60 : 80,
     paddingBottom: 24,
+    flexGrow: 1,
+    justifyContent: 'center'
   },
   headerContent: {
-    marginBottom: 60,
+    marginBottom: 40,
+    alignItems: 'center',
   },
   hello: {
     fontSize: 32,
@@ -292,7 +320,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: "#fff",
     opacity: 0.9,
-    marginBottom: 24,
+    textAlign: 'center'
   },
   brand: {
     fontWeight: "700",
@@ -313,7 +341,7 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     fontSize: 24,
     color: "#ffffff",
-    marginBottom: 32,
+    marginBottom: 24,
   },
   inputContainer: {
     marginBottom: 20,
@@ -344,18 +372,12 @@ const styles = StyleSheet.create({
   },
   inputIcon: {
     marginRight: 12,
-    color: "#ffffff",
   },
   input: {
     flex: 1,
     fontSize: 16,
     color: "#ffffff",
     paddingVertical: 0,
-    borderWidth: 0,
-    borderBottomWidth: 0,
-    borderBottomColor: "transparent",
-    textDecorationLine: "none",
-    backgroundColor: "transparent",
   },
   eyeIcon: {
     padding: 4,
@@ -366,6 +388,13 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginTop: 4,
     marginLeft: 4,
+  },
+  generalErrorText: {
+    color: '#FFD6D6',
+    textAlign: 'center',
+    marginBottom: 16,
+    fontSize: 15,
+    fontWeight: '500'
   },
   forgotContainer: {
     alignSelf: "flex-end",
@@ -402,7 +431,7 @@ const styles = StyleSheet.create({
   },
   signupContainer: {
     alignItems: "center",
-    marginVertical: 24,
+    marginTop: 24,
   },
   signup: {
     fontSize: 14,

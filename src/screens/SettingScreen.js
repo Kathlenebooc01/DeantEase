@@ -1,3 +1,4 @@
+"use client"
 import React from "react"
 import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, Image, ScrollView } from "react-native"
 import { Ionicons } from "@expo/vector-icons"
@@ -13,7 +14,9 @@ export default function SettingsScreen({ navigation }) {
 
   const handleLogout = () => {
     console.log("Logout pressed")
-    // Add logout logic here
+    // Add navigation logic to go back to the Login screen
+    // This will work if Login is the previous screen in the stack
+    navigation.navigate("Login")
   }
 
   return (

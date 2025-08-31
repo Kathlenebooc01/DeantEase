@@ -16,9 +16,44 @@ import {
   Alert,
   ActivityIndicator,
   ScrollView,
+  Modal, // Import Modal for the custom alert
 } from "react-native"
 import { Ionicons } from "@expo/vector-icons"
 import { SafeAreaProvider } from "react-native-safe-area-context"
+
+// Import the necessary Firebase modules
+import { sendPasswordResetEmail } from "firebase/auth"
+import { auth } from '../config/firebaseConfig'; // Make sure this path is correct
+
+// Custom Success Modal Component
+const SuccessModal = ({ isVisible, onClose, email }) => {
+  return (
+    <Modal
+      animationType="fade"
+      transparent={true}
+      visible={isVisible}
+      onRequestClose={onClose}
+    >
+      <View style={modalStyles.centeredView}>
+        <View style={modalStyles.modalView}>
+          <View style={modalStyles.iconContainer}>
+            <Ionicons name="checkmark-done-circle-outline" size={60} color="#3F8FBA" />
+          </View>
+          <Text style={modalStyles.modalTitle}>Reset Link Sent!</Text>
+          <Text style={modalStyles.modalText}>
+            If an account with this email exists, we've sent a password reset link to <Text style={modalStyles.emailText}>{email}</Text>. Please check your spam folder if you don't see it.
+          </Text>
+          <TouchableOpacity
+            style={modalStyles.button}
+            onPress={onClose}
+          >
+            <Text style={modalStyles.buttonText}>OK</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  )
+}
 
 export default function ForgotScreen({ navigation }) {
   const [email, setEmail] = useState("")
@@ -38,6 +73,7 @@ export default function ForgotScreen({ navigation }) {
   const handleResetPassword = async () => {
     // Reset errors
     setEmailError("")
+    setIsSuccess(false)
 
     // Validation
     if (!email.trim()) {
@@ -66,33 +102,30 @@ export default function ForgotScreen({ navigation }) {
 
     setIsLoading(true)
 
-    // Simulate API call
-    setTimeout(() => {
-      setIsLoading(false)
+    // Use the Firebase function to send the password reset email
+    try {
+      await sendPasswordResetEmail(auth, email);
+      
+      console.log("Password reset email sent successfully!");
       setIsSuccess(true)
-      Alert.alert(
-        "Reset Link Sent!", 
-        "We've sent a password reset link to your email address. Please check your inbox and follow the instructions.",
-        [
-          {
-            text: "OK",
-            onPress: () => {
-              if (navigation) {
-                navigation.goBack()
-              }
-            }
-          }
-        ]
-      )
-    }, 2000)
+      
+    } catch (error) {
+      console.error("Firebase Password Reset Error:", error.code, error.message);
+      setIsSuccess(false);
+
+      // We show a generic success message for security reasons, even on errors like user-not-found
+      setIsSuccess(true);
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   const handleBackToLogin = () => {
+    setIsSuccess(false);
     if (navigation) {
       navigation.goBack()
     } else {
       console.log("Navigation back to Login screen")
-      Alert.alert("Navigation", "Would navigate back to Login screen")
     }
   }
 
@@ -195,27 +228,6 @@ export default function ForgotScreen({ navigation }) {
                 </TouchableOpacity>
               </Animated.View>
 
-              {/* Success Message */}
-              {isSuccess && (
-                <View style={styles.successContainer}>
-                  <Ionicons name="checkmark-circle" size={24} color="#ffffff" />
-                  <Text style={styles.successText}>
-                    Reset link sent successfully! Check your email.
-                  </Text>
-                </View>
-              )}
-
-              {/* Back to Login */}
-              <TouchableOpacity 
-                onPress={handleBackToLogin} 
-                style={styles.backToLoginContainer}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.backToLogin}>
-                  Remember your password? <Text style={styles.backToLoginLink}>Back to Login</Text>
-                </Text>
-              </TouchableOpacity>
-
               {/* Help Text */}
               <View style={styles.helpContainer}>
                 <Text style={styles.helpText}>
@@ -226,6 +238,9 @@ export default function ForgotScreen({ navigation }) {
           </TouchableWithoutFeedback>
         </KeyboardAvoidingView>
       </SafeAreaView>
+      
+      {/* Custom Modal is rendered here */}
+      <SuccessModal isVisible={isSuccess} onClose={handleBackToLogin} email={email} />
     </SafeAreaProvider>
   )
 }
@@ -371,23 +386,6 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     fontSize: 16,
   },
-  successContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "rgba(255,255,255,0.15)",
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 20,
-    borderLeftWidth: 4,
-    borderLeftColor: "#ffffff",
-  },
-  successText: {
-    flex: 1,
-    marginLeft: 12,
-    fontSize: 14,
-    color: "#ffffff",
-    fontWeight: "500",
-  },
   backToLoginContainer: {
     alignItems: "center",
     marginBottom: 24,
@@ -413,5 +411,68 @@ const styles = StyleSheet.create({
     color: "rgba(255,255,255,0.9)",
     lineHeight: 20,
     textAlign: "center",
+  },
+})
+
+// Styles for the new Modal
+const modalStyles = StyleSheet.create({
+  centeredView: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0,0,0,0.5)",
+  },
+  modalView: {
+    width: "85%",
+    backgroundColor: "white",
+    borderRadius: 20,
+    padding: 35,
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  iconContainer: {
+    backgroundColor: "#E3F2FD",
+    borderRadius: 50,
+    padding: 15,
+    marginBottom: 20,
+  },
+  modalTitle: {
+    marginBottom: 15,
+    textAlign: "center",
+    fontWeight: "700",
+    fontSize: 24,
+    color: "#333",
+  },
+  modalText: {
+    marginBottom: 20,
+    textAlign: "center",
+    fontSize: 16,
+    color: "#666",
+    lineHeight: 22,
+  },
+  emailText: {
+    fontWeight: "bold",
+    color: "#3F8FBA",
+  },
+  button: {
+    width: "100%",
+    backgroundColor: "#3F8FBA",
+    borderRadius: 12,
+    padding: 15,
+    elevation: 2,
+    marginTop: 10,
+  },
+  buttonText: {
+    color: "white",
+    fontWeight: "bold",
+    textAlign: "center",
+    fontSize: 16,
   },
 })
