@@ -13,9 +13,13 @@ const { width, height } = Dimensions.get('window');
 
 export default function FeedbackScreen({ navigation }) {
   const handleFillSurvey = () => {
-    // Add navigation logic here
+    // Navigate to the SurveyScreen component
     console.log("Fill out survey pressed");
-    // Example: navigation.navigate("SurveyScreen");
+    if (navigation && navigation.navigate) {
+      navigation.navigate("SurveyScreen");
+    } else {
+      console.log("Navigation prop is not available");
+    }
   };
 
   const handleRemindLater = () => {

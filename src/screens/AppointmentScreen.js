@@ -7,23 +7,27 @@ import {
   ScrollView, 
   Alert,
   SafeAreaView,
-  StatusBar
+  StatusBar,
+  Modal
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Navbar from '../navigations/navbar';
 
 const AppointmentScreen = ({ navigation }) => {
   // Current date for calendar display
-  const [currentDate, setCurrentDate] = useState(new Date(2025, 6, 10)); // July 2025
+  const [currentDate, setCurrentDate] = useState(new Date(2025, 7, 31)); // July 2025
   
   // State for selected appointment details
-  const [selectedDate, setSelectedDate] = useState(new Date(2025, 6, 10));
+  const [selectedDate, setSelectedDate] = useState(new Date(2025, 7, 31));
   const [selectedTime, setSelectedTime] = useState('10:00 AM');
   const [selectedServices, setSelectedServices] = useState(['Dental Consultation']);
   
   // State for expanded views
   const [isCalendarExpanded, setIsCalendarExpanded] = useState(false);
   const [isTimeExpanded, setIsTimeExpanded] = useState(false);
+  
+  // State for confirmation modal
+  const [showConfirmationModal, setShowConfirmationModal] = useState(false);
 
   // Available time slots (12-hour format)
   const timeSlots = [
@@ -135,13 +139,40 @@ const AppointmentScreen = ({ navigation }) => {
 
   // Handle confirmation
   const handleConfirm = () => {
-    const appointmentDetails = {
-      selectedDate,
-      selectedTime,
-      selectedServices
+    setShowConfirmationModal(true);
+  };
+
+  // Handle return to home
+  const handleReturnToHome = () => {
+    setShowConfirmationModal(false);
+    navigation.navigate('Profile');
+  };
+
+  // Format date for display
+  const formatDateForModal = (date) => {
+    const options = { 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
     };
+    return date.toLocaleDateString('en-US', options);
+  };
+
+  // Get end time (assuming 1-hour appointments)
+  const getEndTime = (startTime) => {
+    const [time, period] = startTime.split(' ');
+    const [hours, minutes] = time.split(':');
+    let hour = parseInt(hours);
     
-    navigation.navigate('ConfirmationScreen', { appointmentDetails });
+    if (period === 'PM' && hour !== 12) hour += 12;
+    if (period === 'AM' && hour === 12) hour = 0;
+    
+    hour += 1; // Add 1 hour
+    
+    if (hour === 0) return '12:00 AM';
+    if (hour === 12) return '12:00 PM';
+    if (hour > 12) return `${hour - 12}:${minutes} PM`;
+    return `${hour}:${minutes} AM`;
   };
 
   const daysOfWeek = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -375,6 +406,42 @@ const AppointmentScreen = ({ navigation }) => {
         </TouchableOpacity>
       </View>
 
+      {/* Confirmation Modal */}
+      <Modal
+        visible={showConfirmationModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowConfirmationModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            {/* Success Icon */}
+            <View style={styles.successIcon}>
+              <Ionicons name="checkmark" size={32} color="#FFFFFF" />
+            </View>
+            
+            {/* Success Message */}
+            <Text style={styles.successTitle}>Appointment booked Successfully!</Text>
+            
+            {/* Appointment Details */}
+            <Text style={styles.appointmentDetails}>
+              Appointment booked <Text style={styles.doctorName}>Dr. Jessica Fano</Text>
+            </Text>
+            <Text style={styles.appointmentDetails}>
+              on {formatDateForModal(selectedDate)} {selectedTime} to {getEndTime(selectedTime)}
+            </Text>
+            
+            {/* Return to Home Button */}
+            <TouchableOpacity
+              onPress={handleReturnToHome}
+              style={styles.returnButton}
+            >
+              <Text style={styles.returnButtonText}>Return to <Text style={styles.homeLink}>Home</Text></Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
       {/* Bottom Navigation */}
       <Navbar navigation={navigation} activeTab="Appointment" />
     </SafeAreaView>
@@ -537,7 +604,7 @@ const styles = StyleSheet.create({
   selectedWeekDayNumber: {
     color: '#FFFFFF',
   },
-  // Time row preview styles - FIXED
+  // Time row preview styles
   timeRowView: {
     marginTop: 8,
   },
@@ -636,6 +703,67 @@ const styles = StyleSheet.create({
   confirmButtonText: {
     color: '#FFFFFF',
     fontSize: 18,
+    fontWeight: '600',
+  },
+  // Modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+  },
+  modalContainer: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 32,
+    alignItems: 'center',
+    maxWidth: 360,
+    width: '100%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.25,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  successIcon: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: '#10B981',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  successTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#111827',
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  appointmentDetails: {
+    fontSize: 16,
+    color: '#6B7280',
+    textAlign: 'center',
+    lineHeight: 24,
+  },
+  doctorName: {
+    fontWeight: '600',
+    color: '#111827',
+  },
+  returnButton: {
+    marginTop: 32,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+  },
+  returnButtonText: {
+    fontSize: 16,
+    color: '#6B7280',
+    textAlign: 'center',
+  },
+  homeLink: {
+    color: '#2563EB',
     fontWeight: '600',
   },
 });

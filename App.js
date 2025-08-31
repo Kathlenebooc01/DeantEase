@@ -11,9 +11,10 @@ import Profile from './src/screens/Profile';
 import ServicesScreen from './src/screens/ServicesScreen';
 import SettingsScreen from './src/screens/SettingScreen';
 import AppointmentScreen from './src/screens/AppointmentScreen';
-import ConfirmationScreen from './src/screens/ConfirmationScreen';
 import NotificationScreen from './src/screens/NotificationScreen';
 import FeedbackScreen from './src/screens/FeedbackScreen';
+import SurveyScreen from './src/screens/Surveyscreen';
+import Nextsurvey from './src/screens/Nextsurvery';
 
 const Stack = createStackNavigator();
 
@@ -33,9 +34,10 @@ export default function App() {
         <Stack.Screen name="ServicesScreen" component={ServicesScreen} />
         <Stack.Screen name="SettingsScreen" component={SettingsScreen} />
         <Stack.Screen name="AppointmentScreen" component={AppointmentScreen} />
-        <Stack.Screen name="ConfirmationScreen" component={ConfirmationScreen} />
         <Stack.Screen name="NotificationScreen" component={NotificationScreen} />
         <Stack.Screen name="FeedbackScreen" component={FeedbackScreen} />
+        <Stack.Screen name="SurveyScreen" component={SurveyScreen} />
+        <Stack.Screen name="Nextsurvey" component={Nextsurvey} />
       </Stack.Navigator>
     </NavigationContainer>
   );
