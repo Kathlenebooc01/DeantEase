@@ -15,6 +15,7 @@ import NotificationScreen from './src/screens/NotificationScreen';
 import FeedbackScreen from './src/screens/FeedbackScreen';
 import SurveyScreen from './src/screens/Surveyscreen';
 import Nextsurvey from './src/screens/Nextsurvery';
+import AccountSettingsScreen from './src/screens/AccountSettings';  
 
 const Stack = createStackNavigator();
 
@@ -38,6 +39,7 @@ export default function App() {
         <Stack.Screen name="FeedbackScreen" component={FeedbackScreen} />
         <Stack.Screen name="SurveyScreen" component={SurveyScreen} />
         <Stack.Screen name="Nextsurvey" component={Nextsurvey} />
+        <Stack.Screen name="AccountSettings" component={AccountSettingsScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

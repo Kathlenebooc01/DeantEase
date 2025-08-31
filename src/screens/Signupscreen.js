@@ -16,6 +16,7 @@ import {
   ActivityIndicator,
   Dimensions,
   ScrollView,
+  Image, // Step 1: Import Image component
 } from "react-native"
 import { Ionicons } from "@expo/vector-icons"
 import { SafeAreaProvider } from "react-native-safe-area-context"
@@ -203,12 +204,18 @@ export default function SignUpScreen({ navigation }) {
               showsVerticalScrollIndicator={false}
             >
               <View style={styles.header}>
-                <Text style={styles.hello}>Hello!</Text>
+                <Text style={styles.hello}></Text>
                 <Text style={styles.welcome}>
-                  Welcome to <Text style={styles.brand}>DentEase</Text>
+                   <Text style={styles.brand}></Text>
                 </Text>
               </View>
 
+              {/* Step 2: Add the image component here */}
+              <Image 
+                source={require('../../assets/Login/t.png')}
+                style={styles.signUpImage}
+              />
+              
               <Text style={styles.signUpTitle}>Sign Up</Text>
               
               {/* Display general error message here */}
@@ -372,7 +379,7 @@ const styles = StyleSheet.create({
   // ... (Your existing styles remain unchanged)
   container: {
     flex: 1,
-    backgroundColor: "#3F8FBA",
+    backgroundColor: "#3B82F6",
   },
   mainContainer: {
     flex: 1,
@@ -401,6 +408,14 @@ const styles = StyleSheet.create({
   },
   brand: {
     fontWeight: "700",
+  },
+  signUpImage: {
+    width: 140,
+    height: 140,
+    alignSelf: 'center',
+    marginBottom: -30,
+    marginTop: -140,
+    borderRadius: 50,
   },
   signUpTitle: {
     textAlign: "center",

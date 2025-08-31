@@ -248,11 +248,11 @@ export default function ForgotScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#3F8FBA",
+    backgroundColor: "#3B82F6",
   },
   mainContainer: {
     flex: 1,
-    backgroundColor: "#3F8FBA",
+    backgroundColor: "#3B82F6",
   },
   scrollContainer: {
     flexGrow: 1,

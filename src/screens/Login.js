@@ -159,12 +159,11 @@ export default function LoginScreen({ navigation }) {
               </View>
 
               <View style={styles.imageContainer}>
-                {/* Ensure you have the image at this path or replace it */}
-                {/* <Image
+                <Image
                   source={require('../../assets/Login/t.png')}
                   style={styles.logoImage}
                   resizeMode="contain"
-                /> */}
+                />
               </View>
 
               <Text style={styles.loginTitle}>Login</Text>
@@ -266,7 +265,7 @@ export default function LoginScreen({ navigation }) {
                   accessibilityHint="Tap to login with your credentials"
                 >
                   {isLoading ? (
-                    <ActivityIndicator color="#3F8FBA" size="small" />
+                    <ActivityIndicator color="#3B82F6" size="small" />
                   ) : (
                     <Text style={styles.loginButtonText}>Login</Text>
                   )}
@@ -290,7 +289,7 @@ const styles = StyleSheet.create({
   // ... (Your existing styles remain unchanged)
   container: {
     flex: 1,
-    backgroundColor: "#3F8FBA",
+    backgroundColor: "#3B82F6",
   },
   mainContainer: {
     flex: 1,

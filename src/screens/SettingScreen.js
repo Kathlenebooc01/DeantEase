@@ -10,6 +10,9 @@ export default function SettingsScreen({ navigation }) {
     console.log("Menu pressed:", menuItem)
     // Add navigation logic here based on menuItem
     // Example: navigation.navigate(menuItem)
+    if (menuItem === "Account") {
+      navigation?.navigate("AccountSettings");
+    }
   }
 
   const handleLogout = () => {
