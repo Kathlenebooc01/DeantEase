@@ -23,9 +23,9 @@ export default function FeedbackScreen({ navigation }) {
   };
 
   const handleRemindLater = () => {
-    // Add logic to remind later
-    console.log("Remind me later pressed");
-    // Example: navigation.goBack();
+    // Navigate to the ProfileScreen
+    console.log("Remind me later pressed. Navigating to ProfileScreen.");
+    navigation.navigate("Profile");
   };
 
   return (

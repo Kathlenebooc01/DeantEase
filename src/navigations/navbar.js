@@ -13,7 +13,7 @@ export default function Navbar({ navigation, activeTab = "Home" }) {
           navigation.navigate("AppointmentScreen")
           break
         case "Message":
-          navigation.navigate("Message")
+          navigation.navigate("Notification")
           break
         case "Settings":
           navigation.navigate("SettingsScreen")

@@ -57,13 +57,13 @@ export default function Profile({ navigation }) {
     }
   }
 
-  // Add finish appointment handler
-  const handleFinishAppointment = () => {
-    console.log("Finish appointment pressed")
+  // Handle View Appointment button press
+  const handleViewAppointment = () => {
+    console.log("View appointment pressed")
     if (navigation) {
-      navigation.navigate("FeedbackScreen")
+      navigation.navigate("ViewAppointmentScreen")
     } else {
-      console.log("Navigate to FeedbackScreen")
+      console.log("Navigate to ViewAppointmentScreen")
     }
   }
 
@@ -89,8 +89,8 @@ export default function Profile({ navigation }) {
           </View>
         </View>
 
-        <ScrollView 
-          style={styles.content} 
+        <ScrollView
+          style={styles.content}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scrollContent}
           bounces={true}
@@ -106,7 +106,6 @@ export default function Profile({ navigation }) {
                 <View style={styles.bookingTextContainer}>
                   <Text style={styles.bookingTitle}>Dental Care You Can Trust </Text>
                   <Text style={styles.bookingSubtitle}>Instant services and visible results all in one visit.</Text>
-                  
                 </View>
                 <TouchableOpacity style={styles.bookButton} onPress={handleBookNow}>
                   <Text style={styles.bookButtonText}>Book Now</Text>
@@ -199,7 +198,7 @@ export default function Profile({ navigation }) {
                     <Text style={styles.specialtyText}>Dentist</Text>
                   </View>
                 </View>
-                
+
                 <View style={styles.appointmentDetails}>
                   <View style={styles.detailRow}>
                     <View style={styles.iconContainer}>
@@ -220,14 +219,14 @@ export default function Profile({ navigation }) {
                     </View>
                   </View>
                 </View>
-                
-                {/* Finish Button */}
+
+                {/* View Button */}
                 <View style={styles.finishButtonContainer}>
-                  <TouchableOpacity 
-                    style={styles.finishButton} 
-                    onPress={handleFinishAppointment}
+                  <TouchableOpacity
+                    style={styles.viewButton}
+                    onPress={handleViewAppointment}
                   >
-                    <Text style={styles.finishButtonText}>Finish</Text>
+                    <Text style={styles.viewButtonText}>View</Text>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -246,15 +245,15 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#1290D5",
   },
- header: {
-  flexDirection: "row",
-  justifyContent: "space-between",
-  alignItems: "center",
-  paddingHorizontal: 25,
-  paddingTop: 20,   // use SafeArea instead of fixed 60
-  paddingBottom: 20,
-  height: 120,      // keep a consistent height
-  backgroundColor: "#1290D5", // explicitly set
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 25,
+    paddingTop: 20,
+    paddingBottom: 20,
+    height: 120,
+    backgroundColor: "#1290D5",
   },
   userInfo: {
     flexDirection: "row",
@@ -290,11 +289,11 @@ const styles = StyleSheet.create({
     padding: 5,
   },
   content: {
-  flex: 1,
-  backgroundColor: "#f8f9fa",
-  borderTopLeftRadius: 20,
-  borderTopRightRadius: 20,
-  marginTop: -18,   // pull content up to overlap the blue header nicely
+    flex: 1,
+    backgroundColor: "#f8f9fa",
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    marginTop: -18,
   },
   scrollContent: {
     paddingTop: 20,
@@ -518,12 +517,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#666",
   },
-  // New styles for the Finish button
+  // New styles for the View button
   finishButtonContainer: {
     alignItems: "flex-end",
     marginTop: 15,
   },
-  finishButton: {
+  viewButton: {
     backgroundColor: "#4A90E2",
     paddingHorizontal: 20,
     paddingVertical: 8,
@@ -537,7 +536,7 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
   },
-  finishButtonText: {
+  viewButtonText: {
     color: "#fff",
     fontWeight: "600",
     fontSize: 14,
