@@ -190,7 +190,7 @@ export default function Profile({ navigation }) {
           {/* Upcoming Appointment Section */}
           <View style={styles.appointmentSection}>
             <Text style={styles.sectionTitle}>Upcoming Appointment</Text>
-            <TouchableOpacity style={styles.appointmentCard} onPress={handleAppointmentPress}>
+            <View style={styles.appointmentCard}>
               <View style={styles.appointmentContent}>
                 <View style={styles.appointmentHeader}>
                   <View style={styles.doctorInfo}>
@@ -230,7 +230,7 @@ export default function Profile({ navigation }) {
                   </TouchableOpacity>
                 </View>
               </View>
-            </TouchableOpacity>
+            </View>
           </View>
         </ScrollView>
 

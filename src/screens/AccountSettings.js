@@ -1,267 +1,187 @@
 "use client"
-import React, { useState, useEffect } from "react"
+
+import React, { useState, useRef } from "react"
 import {
   View,
   Text,
+  TextInput,
   StyleSheet,
   TouchableOpacity,
   SafeAreaView,
-  TextInput,
-  Image,
-  ScrollView,
   KeyboardAvoidingView,
   Platform,
-  ActivityIndicator,
+  Animated,
+  ScrollView,
+  Image,
+  Modal,
 } from "react-native"
 import { Ionicons } from "@expo/vector-icons"
 import { SafeAreaProvider } from "react-native-safe-area-context"
+import * as ImagePicker from "expo-image-picker"
 
-// Import Firebase Auth & Firestore functions and your config
-import { 
-  getAuth,
-  updateProfile,
-  updateEmail,
-  updatePassword,
-  reauthenticateWithCredential,
-  EmailAuthProvider,
-} from "firebase/auth"
-import { doc, getDoc, setDoc } from "firebase/firestore"
-import { auth, db } from "../config/firebaseConfig"
+// Custom Success Modal Component
+const SuccessModal = ({ isVisible, onClose }) => {
+  return (
+    <Modal
+      animationType="fade"
+      transparent={true}
+      visible={isVisible}
+      onRequestClose={onClose}
+    >
+      <View style={modalStyles.centeredView}>
+        <View style={modalStyles.modalView}>
+          <View style={modalStyles.iconContainer}>
+            <Ionicons name="checkmark-circle-outline" size={60} color="#3F8FBA" />
+          </View>
+          <Text style={modalStyles.modalTitle}>Profile Updated!</Text>
+          <Text style={modalStyles.modalText}>
+            Your account details have been successfully saved.
+          </Text>
+          <TouchableOpacity
+            style={modalStyles.button}
+            onPress={onClose}
+          >
+            <Text style={modalStyles.buttonText}>OK</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  )
+}
 
-export default function AccountSettingsScreen({ navigation }) {
-  const [currentUser, setCurrentUser] = useState(null)
-  const [fullName, setFullName] = useState("")
-  const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
-  const [newPassword, setNewPassword] = useState("")
-  const [confirmNewPassword, setConfirmNewPassword] = useState("")
-  const [isLoading, setIsLoading] = useState(false)
-  const [generalError, setGeneralError] = useState("")
-  const [generalSuccess, setGeneralSuccess] = useState("")
+export default function AccountSettings({ navigation }) {
+  const [profileImage, setProfileImage] = useState(
+    require("../../assets/profile/photo.png")
+  )
+  const [name, setName] = useState("Clara Lauren")
+  const [email, setEmail] = useState("claralaurent@gmail.com")
+  const [phoneNumber, setPhoneNumber] = useState("09123456789")
+  const [isEditing, setIsEditing] = useState(false)
+  const [isSuccess, setIsSuccess] = useState(false)
 
-  // State for input focus
-  const [fullNameFocused, setFullNameFocused] = useState(false)
-  const [emailFocused, setEmailFocused] = useState(false)
-  const [passwordFocused, setPasswordFocused] = useState(false)
-  const [newPasswordFocused, setNewPasswordFocused] = useState(false)
-  const [confirmNewPasswordFocused, setConfirmNewPasswordFocused] = useState(false)
+  const handleImagePicker = async () => {
+    let result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 1,
+    })
 
-  // Fetch current user data on component load
-  useEffect(() => {
-    const fetchUserData = async () => {
-      const user = auth.currentUser
-      if (user) {
-        setCurrentUser(user)
-        setFullName(user.displayName || "")
-        setEmail(user.email || "")
-      }
-    }
-    fetchUserData()
-  }, [])
-
-  const handleUpdateProfile = async () => {
-    setIsLoading(true)
-    setGeneralError("")
-    setGeneralSuccess("")
-
-    try {
-      // Update name if it has changed
-      if (fullName !== currentUser.displayName) {
-        await updateProfile(currentUser, { displayName: fullName })
-        setGeneralSuccess("Profile updated successfully!")
-      }
-
-      // Re-authenticate and update email/password if they have changed
-      if (email !== currentUser.email || newPassword) {
-        if (!password) {
-          setGeneralError("Please enter your current password to update email or password.")
-          setIsLoading(false)
-          return
-        }
-
-        const credential = EmailAuthProvider.credential(currentUser.email, password)
-        await reauthenticateWithCredential(currentUser, credential)
-
-        if (email !== currentUser.email) {
-          await updateEmail(currentUser, email)
-          setGeneralSuccess("Email updated successfully!")
-        }
-
-        if (newPassword) {
-          if (newPassword.length < 6) {
-            setGeneralError("New password must be at least 6 characters.")
-            setIsLoading(false)
-            return
-          }
-          if (newPassword !== confirmNewPassword) {
-            setGeneralError("New passwords do not match.")
-            setIsLoading(false)
-            return
-          }
-          await updatePassword(currentUser, newPassword)
-          setGeneralSuccess("Password updated successfully!")
-        }
-      }
-    } catch (error) {
-      console.error("Error updating profile:", error)
-      if (error.code === 'auth/wrong-password') {
-        setGeneralError("Invalid current password.")
-      } else if (error.code === 'auth/email-already-in-use') {
-        setGeneralError("This email is already in use by another account.")
-      } else {
-        setGeneralError("Failed to update profile. Please try again.")
-      }
-    } finally {
-      setIsLoading(false)
+    if (!result.canceled) {
+      setProfileImage({ uri: result.assets[0].uri })
     }
   }
 
-  const handleUpdateProfilePicture = async () => {
-    // This functionality requires a library like expo-image-picker
-    // and a storage service like Firebase Storage.
-    // Placeholder logic for now.
-    console.log("Change profile picture pressed. This would open an image picker.")
+  const handleSaveChanges = () => {
+    // Implement your logic to save the updated data to your backend or state management
+    console.log("Saving changes:", { name, email, phoneNumber })
+    setIsSuccess(true)
+    setIsEditing(false)
   }
 
-  const navigateBack = () => {
-    navigation?.goBack()
+  const handleChangePasswordPress = () => {
+    // Navigate to the ChangePassword screen
+    navigation.navigate("ChangePassword")
+  }
+
+  const handleGoBack = () => {
+    navigation.goBack()
   }
 
   return (
     <SafeAreaProvider>
       <SafeAreaView style={styles.container}>
-        <View style={styles.header}>
-          <TouchableOpacity onPress={navigateBack} style={styles.backButton}>
-            <Ionicons name="chevron-back" size={24} color="#000" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Account Settings</Text>
-          <View style={{ width: 24 }} />
-        </View>
-
         <ScrollView
           style={styles.content}
-          contentContainerStyle={styles.scrollContainer}
           showsVerticalScrollIndicator={false}
+          bounces={false}
         >
-          <KeyboardAvoidingView
-            behavior={Platform.OS === "ios" ? "padding" : "height"}
-            style={{ flex: 1 }}
-          >
-            {/* Profile Picture Section */}
-            <View style={styles.profilePictureSection}>
-              <Image
-                source={currentUser?.photoURL ? { uri: currentUser.photoURL } : require("../../assets/profile/photo.png")}
-                style={styles.profileImage}
-              />
-              <TouchableOpacity onPress={handleUpdateProfilePicture}>
-                <Text style={styles.changePhotoText}>Change Photo</Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* Status Messages */}
-            {generalError ? <Text style={styles.errorText}>{generalError}</Text> : null}
-            {generalSuccess ? <Text style={styles.successText}>{generalSuccess}</Text> : null}
-
-            {/* Edit Profile Form */}
-            <View style={styles.formCard}>
-              <Text style={styles.formTitle}>Edit Profile</Text>
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>Full Name</Text>
-                <View style={[styles.inputWrapper, fullNameFocused && styles.inputFocused]}>
-                  <Ionicons name="person-outline" size={20} color="#666" style={styles.inputIcon} />
-                  <TextInput
-                    style={styles.input}
-                    value={fullName}
-                    onChangeText={setFullName}
-                    onFocus={() => setFullNameFocused(true)}
-                    onBlur={() => setFullNameFocused(false)}
-                  />
-                </View>
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>Email Address</Text>
-                <View style={[styles.inputWrapper, emailFocused && styles.inputFocused]}>
-                  <Ionicons name="mail-outline" size={20} color="#666" style={styles.inputIcon} />
-                  <TextInput
-                    style={styles.input}
-                    value={email}
-                    onChangeText={setEmail}
-                    onFocus={() => setEmailFocused(true)}
-                    onBlur={() => setEmailFocused(false)}
-                    keyboardType="email-address"
-                  />
-                </View>
-              </View>
-            </View>
-
-            {/* Change Password Form */}
-            <View style={styles.formCard}>
-              <Text style={styles.formTitle}>Change Password</Text>
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>Current Password</Text>
-                <View style={[styles.inputWrapper, passwordFocused && styles.inputFocused]}>
-                  <Ionicons name="lock-closed-outline" size={20} color="#666" style={styles.inputIcon} />
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Required for any changes"
-                    value={password}
-                    onChangeText={setPassword}
-                    onFocus={() => setPasswordFocused(true)}
-                    onBlur={() => setPasswordFocused(false)}
-                    secureTextEntry
-                  />
-                </View>
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>New Password</Text>
-                <View style={[styles.inputWrapper, newPasswordFocused && styles.inputFocused]}>
-                  <Ionicons name="lock-closed-outline" size={20} color="#666" style={styles.inputIcon} />
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Leave blank if not changing"
-                    value={newPassword}
-                    onChangeText={setNewPassword}
-                    onFocus={() => setNewPasswordFocused(true)}
-                    onBlur={() => setNewPasswordFocused(false)}
-                    secureTextEntry
-                  />
-                </View>
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>Confirm New Password</Text>
-                <View style={[styles.inputWrapper, confirmNewPasswordFocused && styles.inputFocused]}>
-                  <Ionicons name="lock-closed-outline" size={20} color="#666" style={styles.inputIcon} />
-                  <TextInput
-                    style={styles.input}
-                    value={confirmNewPassword}
-                    onChangeText={setConfirmNewPassword}
-                    onFocus={() => setConfirmNewPasswordFocused(true)}
-                    onBlur={() => setConfirmNewPasswordFocused(false)}
-                    secureTextEntry
-                  />
-                </View>
-              </View>
-            </View>
-
-            {/* Save Button */}
-            <TouchableOpacity
-              style={styles.saveButton}
-              onPress={handleUpdateProfile}
-              disabled={isLoading}
-            >
-              {isLoading ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <Text style={styles.saveButtonText}>Save Changes</Text>
-              )}
+          {/* Header */}
+          <View style={styles.header}>
+            <TouchableOpacity onPress={handleGoBack} style={styles.backButton}>
+              <Ionicons name="arrow-back" size={24} color="#333" />
             </TouchableOpacity>
+            <Text style={styles.headerTitle}>Account Settings</Text>
+          </View>
 
-          </KeyboardAvoidingView>
+          {/* Profile Picture Section */}
+          <View style={styles.profileSection}>
+            <TouchableOpacity onPress={handleImagePicker}>
+              <View style={styles.profileImageContainer}>
+                <Image source={profileImage} style={styles.profileImage} />
+                <View style={styles.editIconContainer}>
+                  <Ionicons name="camera" size={20} color="#fff" />
+                </View>
+              </View>
+            </TouchableOpacity>
+          </View>
+
+          {/* Profile Details Section */}
+          <View style={styles.detailsSection}>
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Name</Text>
+              <TextInput
+                style={styles.input}
+                value={name}
+                onChangeText={setName}
+                placeholder="Enter your full name"
+                placeholderTextColor="#999"
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Email</Text>
+              <TextInput
+                style={styles.input}
+                value={email}
+                onChangeText={setEmail}
+                placeholder="Enter your email"
+                keyboardType="email-address"
+                placeholderTextColor="#999"
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Phone Number</Text>
+              <TextInput
+                style={styles.input}
+                value={phoneNumber}
+                onChangeText={setPhoneNumber}
+                placeholder="Enter your phone number"
+                keyboardType="phone-pad"
+                placeholderTextColor="#999"
+              />
+            </View>
+          </View>
+
+          {/* Change Password */}
+          <View style={styles.passwordSection}>
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={handleChangePasswordPress}
+            >
+              <View style={styles.menuLeft}>
+                <View style={styles.iconContainer}>
+                  <Ionicons name="key-outline" size={20} color="#666" />
+                </View>
+                <Text style={styles.menuText}>Change Password</Text>
+              </View>
+              <Ionicons name="chevron-forward-outline" size={20} color="#999" />
+            </TouchableOpacity>
+          </View>
         </ScrollView>
+
+        {/* Save Button */}
+        <View style={styles.buttonContainer}>
+          <TouchableOpacity
+            style={styles.saveButton}
+            onPress={handleSaveChanges}
+          >
+            <Text style={styles.saveButtonText}>Save Changes</Text>
+          </TouchableOpacity>
+        </View>
       </SafeAreaView>
+      <SuccessModal isVisible={isSuccess} onClose={() => setIsSuccess(false)} />
     </SafeAreaProvider>
   )
 }
@@ -269,131 +189,184 @@ export default function AccountSettingsScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#F0F4F8", // A lighter, more modern background color
+    backgroundColor: "#F8F9FA",
   },
   header: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: "#fff", // White header background
-    borderBottomWidth: 1,
-    borderBottomColor: "#E2E8F0",
+    paddingTop: 50,
+    marginBottom: 30,
+    position: "relative",
+    justifyContent: "center",
   },
   backButton: {
-    padding: 8,
+    position: "absolute",
+    left: 20,
+    zIndex: 1,
+    paddingTop: 50,
   },
   headerTitle: {
-    fontSize: 20,
-    fontWeight: "600",
-    color: "#1A202C",
+    fontSize: 24,
+    fontWeight: "700",
+    color: "#333",
   },
   content: {
-    flex: 1,
-  },
-  scrollContainer: {
     paddingHorizontal: 20,
-    paddingVertical: 30,
   },
-  profilePictureSection: {
+  profileSection: {
     alignItems: "center",
-    marginBottom: 30,
+    marginBottom: 40,
+  },
+  profileImageContainer: {
+    marginBottom: 10,
+    position: "relative",
+    borderWidth: 3,
+    borderColor: "#007AFF",
+    borderRadius: 75,
   },
   profileImage: {
-    width: 120, // Slightly larger profile image
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: "#CBD5E1",
-    marginBottom: 10,
-    borderWidth: 3,
+    width: 150,
+    height: 150,
+    borderRadius: 75,
+  },
+  editIconContainer: {
+    position: "absolute",
+    bottom: 5,
+    right: 5,
+    backgroundColor: "#007AFF",
+    padding: 8,
+    borderRadius: 20,
+    borderWidth: 2,
     borderColor: "#fff",
   },
-  changePhotoText: {
-    color: "#4299E1", // A vibrant blue
-    fontWeight: "500",
-    fontSize: 16,
-  },
-  formCard: {
-    backgroundColor: "#fff",
-    borderRadius: 12,
-    padding: 20,
-    marginBottom: 20,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 5,
-  },
-  formTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#2D3748",
-    marginBottom: 20,
+  detailsSection: {
+    marginBottom: 30,
   },
   inputGroup: {
     marginBottom: 20,
   },
   label: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: "#4A5568",
+    fontSize: 14,
+    color: "#666",
     marginBottom: 8,
-  },
-  inputWrapper: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#F7FAFC", // Light gray background for inputs
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: "#E2E8F0",
-    paddingHorizontal: 16,
-    minHeight: 50,
-  },
-  inputFocused: {
-    borderColor: "#4299E1",
-    shadowColor: "#4299E1",
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.2,
-    shadowRadius: 5,
-    elevation: 5,
-  },
-  inputIcon: {
-    marginRight: 12,
+    fontWeight: "500",
   },
   input: {
-    flex: 1,
+    borderWidth: 1,
+    borderColor: "#E0E0E0",
+    borderRadius: 12,
+    paddingHorizontal: 15,
+    paddingVertical: 14,
     fontSize: 16,
-    color: "#2D3748",
+    color: "#333",
+    backgroundColor: "#fff",
+  },
+  passwordSection: {
+    borderTopWidth: 0.5,
+    borderTopColor: "#E0E0E0",
+    paddingTop: 20,
+    marginBottom: 20,
+  },
+  menuItem: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 16,
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    paddingHorizontal: 15,
+    borderWidth: 1,
+    borderColor: "#E0E0E0",
+    marginTop: -25,
+  },
+  menuLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  iconContainer: {
+    width: 30,
+    alignItems: "center",
+    marginRight: 10,
+  },
+  menuText: {
+    fontSize: 16,
+    color: "#333",
+    fontWeight: "500",
+  },
+  buttonContainer: {
+    paddingHorizontal: 20,
+    paddingVertical: 15,
+    borderTopWidth: 1,
+    borderTopColor: "#F0F0F0",
   },
   saveButton: {
-    backgroundColor: "#4299E1",
-    paddingVertical: 16,
-    borderRadius: 10,
+    backgroundColor: "#007AFF",
+    paddingVertical: 18,
+    borderRadius: 12,
     alignItems: "center",
-    justifyContent: "center",
-    marginTop: 10,
-    shadowColor: "#4299E1",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 5,
-    elevation: 8,
   },
   saveButtonText: {
     color: "#fff",
     fontSize: 18,
+    fontWeight: "600",
+  },
+});
+
+// Styles for the new Modal
+const modalStyles = StyleSheet.create({
+  centeredView: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0,0,0,0.5)",
+  },
+  modalView: {
+    width: "85%",
+    backgroundColor: "white",
+    borderRadius: 20,
+    padding: 35,
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  iconContainer: {
+    backgroundColor: "#E3F2FD",
+    borderRadius: 50,
+    padding: 15,
+    marginBottom: 20,
+  },
+  modalTitle: {
+    marginBottom: 15,
+    textAlign: "center",
     fontWeight: "700",
+    fontSize: 24,
+    color: "#333",
   },
-  errorText: {
-    color: "#F56565",
+  modalText: {
+    marginBottom: 20,
     textAlign: "center",
-    marginBottom: 15,
-    fontWeight: "500",
+    fontSize: 16,
+    color: "#666",
+    lineHeight: 22,
   },
-  successText: {
-    color: "#48BB78",
+  button: {
+    width: "100%",
+    backgroundColor: "#3F8FBA",
+    borderRadius: 12,
+    padding: 15,
+    elevation: 2,
+    marginTop: 10,
+  },
+  buttonText: {
+    color: "white",
+    fontWeight: "bold",
     textAlign: "center",
-    marginBottom: 15,
-    fontWeight: "500",
+    fontSize: 16,
   },
 })

@@ -17,6 +17,7 @@ import SurveyScreen from './src/screens/Surveyscreen';
 import Nextsurvey from './src/screens/Nextsurvery';
 import AccountSettingsScreen from './src/screens/AccountSettings';
 import ViewAppointmentScreen from './src/screens/ViewAppointmentScreen';
+import ChangePasswordScreen from './src/screens/ChangePasswordScreen'; // Added this import
 
 const Stack = createStackNavigator();
 
@@ -42,6 +43,7 @@ export default function App() {
         <Stack.Screen name="Nextsurvey" component={Nextsurvey} />
         <Stack.Screen name="AccountSettings" component={AccountSettingsScreen} />
         <Stack.Screen name="ViewAppointmentScreen" component={ViewAppointmentScreen} />
+        <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

@@ -1,33 +1,38 @@
 import React, { useState } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  TouchableOpacity, 
-  ScrollView, 
-  Alert,
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  ScrollView,
   SafeAreaView,
   StatusBar,
-  Modal
+  Modal,
+  Alert
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Navbar from '../navigations/navbar';
+// Import Firebase functions
+import { db, auth } from '../config/firebaseConfig'; // Correct path to your config folder
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 
 const AppointmentScreen = ({ navigation }) => {
-  // Current date for calendar display
-  const [currentDate, setCurrentDate] = useState(new Date(2025, 7, 31)); // July 2025
-  
+  // Use today's date for a live calendar
+  const today = new Date();
+  const [currentDate, setCurrentDate] = useState(new Date());
+
   // State for selected appointment details
-  const [selectedDate, setSelectedDate] = useState(new Date(2025, 7, 31));
-  const [selectedTime, setSelectedTime] = useState('10:00 AM');
-  const [selectedServices, setSelectedServices] = useState(['Dental Consultation']);
-  
+  const [selectedDate, setSelectedDate] = useState(null);
+  const [selectedTime, setSelectedTime] = useState(null);
+  const [selectedServices, setSelectedServices] = useState([]);
+
   // State for expanded views
   const [isCalendarExpanded, setIsCalendarExpanded] = useState(false);
   const [isTimeExpanded, setIsTimeExpanded] = useState(false);
-  
-  // State for confirmation modal
+
+  // State for confirmation modal and loading
   const [showConfirmationModal, setShowConfirmationModal] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   // Available time slots (12-hour format)
   const timeSlots = [
@@ -37,20 +42,69 @@ const AppointmentScreen = ({ navigation }) => {
 
   // Available services
   const services = [
-    'Dental Consultation', 
-    'Oral Prophylaxis (Cleaning)', 
+    'Dental Consultation',
+    'Oral Prophylaxis (Cleaning)',
     'Dental Filling (Pasta)',
-    'Flouride Varnish', 
-    'Pit and Fissure Sealant', 
+    'Flouride Varnish',
+    'Pit and Fissure Sealant',
     'Root Canal Treatment',
-    'Tooth Extraction /Odontectomy', 
-    'Orthodontic Braces', 
+    'Tooth Extraction /Odontectomy',
+    'Orthodontic Braces',
     'Teeth Whitening',
-    'Gingivectomy', 
+    'Gingivectomy',
     'Frenectomy',
     'Dentures',
     'Dental Crown'
   ];
+
+  // Function to save appointment to Firebase
+  const saveAppointmentToFirebase = async (appointmentData) => {
+    try {
+      const appointmentsCollection = collection(db, 'appointments');
+      const docRef = await addDoc(appointmentsCollection, appointmentData);
+      console.log('Appointment saved with ID: ', docRef.id);
+      return { success: true, id: docRef.id };
+    } catch (error) {
+      console.error('Error saving appointment: ', error);
+      return { success: false, error: error.message };
+    }
+  };
+
+  // Function to check if a given date is in the past (ignoring time)
+  const isPastDate = (date) => {
+    const todayDateOnly = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const dateToCheck = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    return dateToCheck < todayDateOnly;
+  };
+
+  // Check if a time slot is in the past for the selected date
+  const isPastTimeSlot = (timeSlot) => {
+    if (selectedDate?.toDateString() !== today.toDateString()) {
+      return false;
+    }
+
+    const [time, period] = timeSlot.split(' ');
+    const [hours, minutes] = time.split(':');
+    let hour = parseInt(hours, 10);
+    const minute = parseInt(minutes, 10);
+
+    if (period === 'PM' && hour !== 12) {
+      hour += 12;
+    }
+    if (period === 'AM' && hour === 12) {
+      hour = 0;
+    }
+
+    const timeSlotDate = new Date(
+      selectedDate.getFullYear(),
+      selectedDate.getMonth(),
+      selectedDate.getDate(),
+      hour,
+      minute
+    );
+
+    return timeSlotDate < today;
+  };
 
   // Function to get the number of days in a month
   const getDaysInMonth = (year, month) => {
@@ -84,10 +138,9 @@ const AppointmentScreen = ({ navigation }) => {
 
   // Generate current week days
   const generateCurrentWeekDays = () => {
-    const today = selectedDate;
-    const startOfWeek = new Date(today);
+    const startOfWeek = new Date(selectedDate || today);
     const day = startOfWeek.getDay();
-    const diff = startOfWeek.getDate() - day + (day === 0 ? -6 : 1); // adjust when day is Sunday
+    const diff = startOfWeek.getDate() - day + (day === 0 ? -6 : 1);
     startOfWeek.setDate(diff);
 
     const weekDays = [];
@@ -98,8 +151,6 @@ const AppointmentScreen = ({ navigation }) => {
     }
     return weekDays;
   };
-
-  const calendarDays = generateCalendarDays();
 
   // Handle month navigation
   const goToPreviousMonth = () => {
@@ -120,7 +171,9 @@ const AppointmentScreen = ({ navigation }) => {
 
   // Handle selections
   const handleDateClick = (date) => {
-    setSelectedDate(date);
+    if (!isPastDate(date)) {
+      setSelectedDate(date);
+    }
   };
 
   const handleTimeClick = (time) => {
@@ -137,53 +190,125 @@ const AppointmentScreen = ({ navigation }) => {
     });
   };
 
-  // Handle confirmation
-  const handleConfirm = () => {
-    setShowConfirmationModal(true);
+  // Handle confirmation with Firebase integration
+  const handleConfirm = async () => {
+    // Check if all required fields are selected
+    if (!selectedDate || !selectedTime || selectedServices.length === 0) {
+      Alert.alert(
+        'Incomplete Information',
+        'Please select a date, time, and at least one service to confirm your appointment.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      // Get current user
+      const currentUser = auth.currentUser;
+      if (!currentUser) {
+        Alert.alert(
+          'Authentication Required',
+          'Please log in to book an appointment.',
+          [{ text: 'OK' }]
+        );
+        setIsLoading(false);
+        return;
+      }
+
+      // Create appointment data
+      const appointmentData = {
+        userId: currentUser.uid,
+        userEmail: currentUser.email,
+        date: selectedDate.toISOString(),
+        time: selectedTime,
+        services: selectedServices,
+        doctor: 'Dr. Jessica Fano',
+        status: 'confirmed',
+        createdAt: serverTimestamp(),
+        // Add formatted date for easier querying
+        appointmentDate: selectedDate.toLocaleDateString('en-US'),
+        // Add end time
+        endTime: getEndTime(selectedTime)
+      };
+
+      // Save to Firebase
+      const result = await saveAppointmentToFirebase(appointmentData);
+      
+      if (result.success) {
+        setShowConfirmationModal(true);
+      } else {
+        Alert.alert(
+          'Booking Failed',
+          'There was an error booking your appointment. Please try again.',
+          [{ text: 'OK' }]
+        );
+      }
+    } catch (error) {
+      console.error('Error in handleConfirm:', error);
+      Alert.alert(
+        'Booking Failed',
+        'There was an error booking your appointment. Please try again.',
+        [{ text: 'OK' }]
+      );
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   // Handle return to home
   const handleReturnToHome = () => {
     setShowConfirmationModal(false);
+    // Reset form
+    setSelectedDate(null);
+    setSelectedTime(null);
+    setSelectedServices([]);
     navigation.navigate('Profile');
   };
 
   // Format date for display
   const formatDateForModal = (date) => {
-    const options = { 
-      year: 'numeric', 
-      month: 'long', 
-      day: 'numeric' 
+    if (!date) return 'N/A';
+    const options = {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
     };
     return date.toLocaleDateString('en-US', options);
   };
 
   // Get end time (assuming 1-hour appointments)
   const getEndTime = (startTime) => {
+    if (!startTime) return 'N/A';
     const [time, period] = startTime.split(' ');
     const [hours, minutes] = time.split(':');
     let hour = parseInt(hours);
-    
+
     if (period === 'PM' && hour !== 12) hour += 12;
     if (period === 'AM' && hour === 12) hour = 0;
-    
+
     hour += 1; // Add 1 hour
-    
-    if (hour === 0) return '12:00 AM';
-    if (hour === 12) return '12:00 PM';
-    if (hour > 12) return `${hour - 12}:${minutes} PM`;
-    return `${hour}:${minutes} AM`;
+
+    const endMinutes = minutes.padStart(2, '0');
+    if (hour === 0) return `12:${endMinutes} AM`;
+    if (hour === 12) return `12:${endMinutes} PM`;
+    if (hour > 12) return `${hour - 12}:${endMinutes} PM`;
+    return `${hour}:${endMinutes} AM`;
   };
 
   const daysOfWeek = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+ 
+  // Check if the confirm button should be enabled
+  const isConfirmButtonEnabled = selectedDate && selectedTime && selectedServices.length > 0 && !isLoading;
 
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
-      
+
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.backButton}
           onPress={() => navigation.goBack()}
         >
@@ -192,29 +317,29 @@ const AppointmentScreen = ({ navigation }) => {
         <Text style={styles.headerTitle}>Book Appointment</Text>
       </View>
 
-      <ScrollView 
+      <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
         {/* Calendar Section */}
         <View style={styles.section}>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.sectionHeader}
             onPress={() => setIsCalendarExpanded(!isCalendarExpanded)}
           >
             <Text style={styles.sectionTitle}>
-              {selectedDate.toLocaleDateString('en-US', { 
-                weekday: 'short', 
-                month: 'long', 
+              {selectedDate ? selectedDate.toLocaleDateString('en-US', {
+                weekday: 'short',
+                month: 'long',
                 day: 'numeric',
                 year: 'numeric'
-              })}
+              }) : 'Select Date'}
             </Text>
-            <Ionicons 
-              name={isCalendarExpanded ? "chevron-up" : "chevron-down"} 
-              size={20} 
-              color="#6B7280" 
+            <Ionicons
+              name={isCalendarExpanded ? "chevron-up" : "chevron-down"}
+              size={20}
+              color="#6B7280"
             />
           </TouchableOpacity>
 
@@ -252,16 +377,19 @@ const AppointmentScreen = ({ navigation }) => {
                           handleDateClick(day);
                           setIsCalendarExpanded(false);
                         }}
+                        disabled={isPastDate(day)}
                         style={[
                           styles.dayButton,
-                          day.toDateString() === selectedDate.toDateString() && styles.selectedDay,
-                          new Date().toDateString() === day.toDateString() && 
-                          day.toDateString() !== selectedDate.toDateString() && styles.todayDay
+                          selectedDate?.toDateString() === day.toDateString() && styles.selectedDay,
+                          today.toDateString() === day.toDateString() &&
+                          selectedDate?.toDateString() !== day.toDateString() && styles.todayDay,
+                          isPastDate(day) && styles.disabledDay,
                         ]}
                       >
                         <Text style={[
                           styles.dayText,
-                          day.toDateString() === selectedDate.toDateString() && styles.selectedDayText,
+                          selectedDate?.toDateString() === day.toDateString() && styles.selectedDayText,
+                          isPastDate(day) && styles.disabledDayText,
                           day.getMonth() !== currentDate.getMonth() && styles.otherMonthDay
                         ]}>
                           {day.getDate()}
@@ -282,20 +410,24 @@ const AppointmentScreen = ({ navigation }) => {
                   <TouchableOpacity
                     key={index}
                     onPress={() => handleDateClick(day)}
+                    disabled={isPastDate(day)}
                     style={[
                       styles.weekDayButton,
-                      day.toDateString() === selectedDate.toDateString() && styles.selectedWeekDay
+                      selectedDate?.toDateString() === day.toDateString() && styles.selectedWeekDay,
+                      isPastDate(day) && styles.disabledDay
                     ]}
                   >
                     <Text style={[
                       styles.weekDayLabel,
-                      day.toDateString() === selectedDate.toDateString() && styles.selectedWeekDayLabel
+                      selectedDate?.toDateString() === day.toDateString() && styles.selectedWeekDayLabel,
+                      isPastDate(day) && styles.disabledDayText
                     ]}>
                       {daysOfWeek[index]}
                     </Text>
                     <Text style={[
                       styles.weekDayNumber,
-                      day.toDateString() === selectedDate.toDateString() && styles.selectedWeekDayNumber
+                      selectedDate?.toDateString() === day.toDateString() && styles.selectedWeekDayNumber,
+                      isPastDate(day) && styles.disabledDayText
                     ]}>
                       {day.getDate()}
                     </Text>
@@ -308,15 +440,15 @@ const AppointmentScreen = ({ navigation }) => {
 
         {/* Select Time Section */}
         <View style={styles.section}>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.sectionHeader}
             onPress={() => setIsTimeExpanded(!isTimeExpanded)}
           >
-            <Text style={styles.sectionTitle}>Select Time - {selectedTime}</Text>
-            <Ionicons 
-              name={isTimeExpanded ? "chevron-up" : "chevron-down"} 
-              size={20} 
-              color="#6B7280" 
+            <Text style={styles.sectionTitle}>Select Time {selectedTime ? `- ${selectedTime}` : ''}</Text>
+            <Ionicons
+              name={isTimeExpanded ? "chevron-up" : "chevron-down"}
+              size={20}
+              color="#6B7280"
             />
           </TouchableOpacity>
 
@@ -329,14 +461,17 @@ const AppointmentScreen = ({ navigation }) => {
                     handleTimeClick(time);
                     setIsTimeExpanded(false);
                   }}
+                  disabled={isPastTimeSlot(time)}
                   style={[
                     styles.timeSlot,
-                    selectedTime === time && styles.selectedTimeSlot
+                    selectedTime === time && styles.selectedTimeSlot,
+                    isPastTimeSlot(time) && styles.disabledTimeSlot,
                   ]}
                 >
                   <Text style={[
                     styles.timeSlotText,
-                    selectedTime === time && styles.selectedTimeSlotText
+                    selectedTime === time && styles.selectedTimeSlotText,
+                    isPastTimeSlot(time) && styles.disabledTimeSlotText,
                   ]}>
                     {time}
                   </Text>
@@ -350,14 +485,17 @@ const AppointmentScreen = ({ navigation }) => {
                   <TouchableOpacity
                     key={time}
                     onPress={() => handleTimeClick(time)}
+                    disabled={isPastTimeSlot(time)}
                     style={[
                       styles.timeSlotPreview,
-                      selectedTime === time && styles.selectedTimeSlotPreview
+                      selectedTime === time && styles.selectedTimeSlotPreview,
+                      isPastTimeSlot(time) && styles.disabledTimeSlot,
                     ]}
                   >
                     <Text style={[
                       styles.timeSlotPreviewText,
-                      selectedTime === time && styles.selectedTimeSlotPreviewText
+                      selectedTime === time && styles.selectedTimeSlotPreviewText,
+                      isPastTimeSlot(time) && styles.disabledTimeSlotText,
                     ]}>
                       {time}
                     </Text>
@@ -400,9 +538,19 @@ const AppointmentScreen = ({ navigation }) => {
       <View style={styles.confirmContainer}>
         <TouchableOpacity
           onPress={handleConfirm}
-          style={styles.confirmButton}
+          disabled={!isConfirmButtonEnabled}
+          style={[
+            styles.confirmButton,
+            !isConfirmButtonEnabled && styles.disabledConfirmButton
+          ]}
         >
-          <Text style={styles.confirmButtonText}>Confirm</Text>
+          {isLoading ? (
+            <View style={styles.loadingContainer}>
+              <Text style={styles.confirmButtonText}>Booking...</Text>
+            </View>
+          ) : (
+            <Text style={styles.confirmButtonText}>Confirm</Text>
+          )}
         </TouchableOpacity>
       </View>
 
@@ -419,10 +567,10 @@ const AppointmentScreen = ({ navigation }) => {
             <View style={styles.successIcon}>
               <Ionicons name="checkmark" size={32} color="#FFFFFF" />
             </View>
-            
+
             {/* Success Message */}
             <Text style={styles.successTitle}>Appointment booked Successfully!</Text>
-            
+
             {/* Appointment Details */}
             <Text style={styles.appointmentDetails}>
               Appointment booked <Text style={styles.doctorName}>Dr. Jessica Fano</Text>
@@ -430,7 +578,7 @@ const AppointmentScreen = ({ navigation }) => {
             <Text style={styles.appointmentDetails}>
               on {formatDateForModal(selectedDate)} {selectedTime} to {getEndTime(selectedTime)}
             </Text>
-            
+
             {/* Return to Home Button */}
             <TouchableOpacity
               onPress={handleReturnToHome}
@@ -544,10 +692,16 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: '#60A5FA',
   },
+  disabledDay: {
+    opacity: 0.4,
+  },
   dayText: {
     fontSize: 14,
     fontWeight: '500',
     color: '#111827',
+  },
+  disabledDayText: {
+    color: '#9CA3AF',
   },
   selectedDayText: {
     color: '#FFFFFF',
@@ -658,6 +812,13 @@ const styles = StyleSheet.create({
   selectedTimeSlotText: {
     color: '#FFFFFF',
   },
+  disabledTimeSlot: {
+    opacity: 0.4,
+    backgroundColor: '#E5E7EB',
+  },
+  disabledTimeSlotText: {
+    color: '#9CA3AF',
+  },
   servicesGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -687,7 +848,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     paddingHorizontal: 16,
     paddingTop: 16,
-    paddingBottom: 80, // Account for navbar height
+    paddingBottom: 80,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -2 },
     shadowOpacity: 0.1,
@@ -704,6 +865,13 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 18,
     fontWeight: '600',
+  },
+  disabledConfirmButton: {
+    backgroundColor: '#9CA3AF',
+  },
+  loadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   // Modal styles
   modalOverlay: {

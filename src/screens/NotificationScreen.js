@@ -7,101 +7,66 @@ import {
   StatusBar,
   TouchableOpacity,
   ScrollView,
-  Image,
   Alert,
   Modal,
+  Linking,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import Navbar from '../navigations/navbar';
+// Assuming you have a Navbar component
+// import Navbar from '../navigations/navbar';
 
 const NotificationScreen = ({ navigation, route }) => {
   const [notifications, setNotifications] = useState([]);
-  const [showActionModal, setShowActionModal] = useState(false);
+  const [showActionModal, setShowActionModal] = useState(false); // For long-press actions
+  const [showNotificationModal, setShowNotificationModal] = useState(false); // For regular-press pop-up
   const [selectedNotification, setSelectedNotification] = useState(null);
-  const [expandedNotifications, setExpandedNotifications] = useState(new Set());
 
   useEffect(() => {
-    // Check for appointment notifications when screen loads
     generateNotifications();
   }, [route.params]);
 
   const generateNotifications = () => {
-    // Get appointment details if passed from ConfirmationScreen
-    const { appointmentDetails } = route.params || {};
-    
-    let notificationList = [];
-    
-    // If there's a new appointment booked, create notifications for it
-    if (appointmentDetails) {
-      const { selectedDate, selectedTime, selectedServices } = appointmentDetails;
-      
-      // Create reminder notification
-      const reminderNotification = {
-        id: 'reminder_' + Date.now(),
-        type: 'Reminders',
-        title: 'Appointment Reminder',
-        message: `You have an appointment with Dr. Jessica Fano on ${selectedDate.toLocaleDateString('en-US', { 
-          month: 'long', 
-          day: 'numeric', 
-          year: 'numeric' 
-        })} at ${selectedTime}`,
-        date: new Date().toLocaleDateString('en-US', { 
-          month: 'short', 
-          day: '2-digit', 
-          year: 'numeric' 
-        }),
-        isNew: true,
-        isRead: false
-      };
-      
-      // Create booking confirmation notification
-      const confirmationNotification = {
-        id: 'confirmation_' + Date.now(),
-        type: 'Booking Confirmation',
-        title: 'Appointment Confirmed',
-        message: `Your appointment has been successfully booked with Dr. Jessica Fano for ${selectedServices.join(', ')}`,
-        date: new Date(Date.now() - 86400000).toLocaleDateString('en-US', { 
-          month: 'short', 
-          day: '2-digit', 
-          year: 'numeric' 
-        }),
-        isNew: true,
-        isRead: false
-      };
-      
-      notificationList = [reminderNotification, confirmationNotification];
-    }
-    
-    // Add some sample past notifications
     const sampleNotifications = [
       {
-        id: 'update_1',
+        id: 'reminder_1',
+        type: 'Reminders',
+        title: 'Appointment Reminder',
+        message: 'Hello Claura Smith,\n\nThis is DentEase Clinic, Just wanted to send a reminder that you have an appointment tomorrow at 1:00 PM.',
+        date: 'July 09, 2025',
+        isNew: true,
+        isRead: false,
+        expandedContent: {
+          clinic: 'Dental Clinic',
+          phoneNumber: '09481921762',
+        },
+      },
+      {
+        id: 'booking_2',
+        type: 'Booking Confirmation',
+        title: 'Appointment Confirmed',
+        message: 'Lorem Ipsum is simply dummy text of the printing and typesetting industry.',
+        date: 'July 08, 2025',
+        isNew: false,
+        isRead: false,
+      },
+      {
+        id: 'update_3',
         type: 'Latest update',
         title: 'New Services Available',
-        message: 'We now offer advanced teeth whitening and orthodontic treatments. Book your appointment today!',
-        fullMessage: 'We are excited to announce new services at our dental clinic!\n\nNew Services Available:\n• Advanced Teeth Whitening - Professional whitening treatments for a brighter smile\n• Orthodontic Treatments - Braces, clear aligners, and other teeth straightening options\n• Cosmetic Dentistry - Veneers, bonding, and smile makeovers\n• Implant Dentistry - Tooth replacement solutions\n\nOur experienced team is ready to help you achieve the perfect smile. Contact us today to schedule a consultation and learn more about these exciting new treatments!\n\nSpecial promotion: 20% off teeth whitening for new patients this month!',
+        message: 'Lorem Ipsum is simply dummy text of the printing and typesetting industry.',
         date: 'July 05, 2025',
         isNew: false,
-        isRead: true
-      }
+        isRead: true,
+      },
     ];
-    
-    setNotifications([...notificationList, ...sampleNotifications]);
+
+    setNotifications(sampleNotifications);
   };
 
   const handleNotificationPress = (notification) => {
-    console.log('Notification pressed:', notification);
-    
-    // Toggle expansion
-    const newExpandedNotifications = new Set(expandedNotifications);
-    if (expandedNotifications.has(notification.id)) {
-      newExpandedNotifications.delete(notification.id);
-    } else {
-      newExpandedNotifications.add(notification.id);
-      // Mark as read when expanded
-      markAsRead(notification.id);
-    }
-    setExpandedNotifications(newExpandedNotifications);
+    setSelectedNotification(notification);
+    markAsRead(notification.id);
+    setShowNotificationModal(true);
   };
 
   const handleLongPress = (notification) => {
@@ -110,9 +75,9 @@ const NotificationScreen = ({ navigation, route }) => {
   };
 
   const markAsRead = (notificationId) => {
-    setNotifications(prev => 
-      prev.map(notification => 
-        notification.id === notificationId 
+    setNotifications((prev) =>
+      prev.map((notification) =>
+        notification.id === notificationId
           ? { ...notification, isRead: true, isNew: false }
           : notification
       )
@@ -121,15 +86,23 @@ const NotificationScreen = ({ navigation, route }) => {
 
   const markAsUnread = () => {
     if (selectedNotification) {
-      setNotifications(prev => 
-        prev.map(notification => 
-          notification.id === selectedNotification.id 
+      setNotifications((prev) =>
+        prev.map((notification) =>
+          notification.id === selectedNotification.id
             ? { ...notification, isRead: false, isNew: true }
             : notification
         )
       );
     }
-    setShowActionModal(false);
+    closeActionModal();
+    setSelectedNotification(null);
+  };
+
+  const markAsReadFromLongPress = () => {
+    if (selectedNotification) {
+      markAsRead(selectedNotification.id);
+    }
+    closeActionModal();
     setSelectedNotification(null);
   };
 
@@ -142,24 +115,25 @@ const NotificationScreen = ({ navigation, route }) => {
         {
           text: 'Cancel',
           style: 'cancel',
-          onPress: () => setSelectedNotification(null)
+          onPress: () => setSelectedNotification(null),
         },
         {
           text: 'Confirm',
           style: 'destructive',
-          onPress: deleteNotification
-        }
+          onPress: deleteNotification,
+        },
       ]
     );
   };
 
   const deleteNotification = () => {
     if (selectedNotification) {
-      setNotifications(prev => 
-        prev.filter(notification => notification.id !== selectedNotification.id)
+      setNotifications((prev) =>
+        prev.filter((notification) => notification.id !== selectedNotification.id)
       );
     }
-    setSelectedNotification(null);
+    closeActionModal();
+    closeNotificationModal();
   };
 
   const closeActionModal = () => {
@@ -167,136 +141,132 @@ const NotificationScreen = ({ navigation, route }) => {
     setSelectedNotification(null);
   };
 
-  const renderEmptyState = () => (
-    <View style={styles.emptyContainer}>
-      <View style={styles.emptyIconContainer}>
-        <View style={styles.folderIcon}>
-          <View style={styles.folderBase} />
-          <View style={styles.folderTop} />
-          <View style={styles.folderTab} />
-        </View>
-        <View style={styles.bellIcon}>
-          <Ionicons name="notifications" size={28} color="#F1C40F" />
-          <View style={styles.exclamationBadge}>
-            <Text style={styles.exclamationText}>!</Text>
-          </View>
-        </View>
-      </View>
-      
-      <Text style={styles.emptyTitle}>No notifications yet</Text>
-      <Text style={styles.emptyMessage}>
-        Your notification will appear here once you've{'\n'}received them.
-      </Text>
-    </View>
-  );
+  const closeNotificationModal = () => {
+    setShowNotificationModal(false);
+    setSelectedNotification(null);
+  };
 
   const renderNotificationItem = (notification) => {
-    const isExpanded = expandedNotifications.has(notification.id);
-    
+    const isUnread = !notification.isRead;
     return (
       <TouchableOpacity
         key={notification.id}
         style={[
           styles.notificationItem,
-          notification.type === 'Reminders' && styles.reminderNotification,
-          !notification.isRead && styles.unreadNotification,
-          isExpanded && styles.expandedNotification
+          isUnread ? styles.unreadNotification : null,
         ]}
         onPress={() => handleNotificationPress(notification)}
         onLongPress={() => handleLongPress(notification)}
         delayLongPress={500}
       >
-        <View style={styles.notificationContent}>
-          <View style={styles.notificationHeader}>
-            <Text style={[
+        <View style={styles.notificationHeader}>
+          <Text
+            style={[
               styles.notificationType,
-              notification.type === 'Reminders' && styles.reminderText
-            ]}>
-              {notification.type}
-            </Text>
-            <View style={styles.notificationMeta}>
-              <Text style={[
-                styles.notificationDate,
-                notification.type === 'Reminders' && styles.reminderDateText
-              ]}>
-                {notification.date}
-              </Text>
-              {!notification.isRead && <View style={[
-                styles.newIndicator,
-                notification.type === 'Reminders' && styles.reminderIndicator
-              ]} />}
-              <Ionicons 
-                name={isExpanded ? "chevron-up" : "chevron-down"} 
-                size={20} 
-                color={notification.type === 'Reminders' ? "#E5E7EB" : "#9CA3AF"} 
-                style={styles.expandIcon}
-              />
-            </View>
-          </View>
-          
-          <Text style={[
-            styles.notificationMessage,
-            notification.type === 'Reminders' && styles.reminderMessageText
-          ]}>
-            {isExpanded ? (notification.fullMessage || notification.message) : notification.message}
+              isUnread ? styles.unreadText : null,
+            ]}
+          >
+            {notification.type}
           </Text>
-          
-          {isExpanded && (notification.type === 'Reminders' || notification.type === 'Booking Confirmation') && (
-            <TouchableOpacity
+          <View style={styles.notificationMeta}>
+            <Text
               style={[
-                styles.actionButton,
-                notification.type === 'Reminders' && styles.reminderActionButton
+                styles.notificationDate,
+                isUnread ? styles.unreadText : null,
               ]}
-              onPress={() => navigation.navigate('AppointmentScreen')}
             >
-              <Text style={[
-                styles.actionButtonText,
-                notification.type === 'Reminders' && styles.reminderActionButtonText
-              ]}>
-                View Appointment
-              </Text>
-            </TouchableOpacity>
-          )}
+              {notification.date}
+            </Text>
+            {isUnread && (
+              <View style={styles.newIndicator} />
+            )}
+          </View>
+        </View>
+        <View style={styles.notificationContent}>
+          <Text
+            style={[
+              styles.notificationMessage,
+              isUnread ? styles.unreadMessageText : null,
+            ]}
+            numberOfLines={2}
+            ellipsizeMode="tail"
+          >
+            {notification.message}
+          </Text>
         </View>
       </TouchableOpacity>
     );
   };
 
-  const renderActionModal = () => (
+  const renderNotificationModal = () => (
     <Modal
       animationType="fade"
       transparent={true}
-      visible={showActionModal}
-      onRequestClose={closeActionModal}
+      visible={showNotificationModal}
+      onRequestClose={closeNotificationModal}
     >
-      <TouchableOpacity 
-        style={styles.modalOverlay} 
-        activeOpacity={1} 
-        onPress={closeActionModal}
+      <TouchableOpacity
+        style={styles.modalOverlay}
+        activeOpacity={1}
+        onPress={closeNotificationModal}
       >
-        <View style={styles.modalContent}>
+        <View style={styles.modalContent} onStartShouldSetResponder={() => true}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>
+              {selectedNotification?.type}
+            </Text>
+            <TouchableOpacity onPress={closeNotificationModal}>
+              <Ionicons name="close" size={24} color="#6B7280" />
+            </TouchableOpacity>
+          </View>
+          <ScrollView contentContainerStyle={styles.modalScrollView}>
+            <Text style={styles.modalMessageFull}>
+              {selectedNotification?.message}
+            </Text>
+            {selectedNotification?.expandedContent?.clinic && (
+              <Text style={styles.modalExpandedText}>
+                {selectedNotification.expandedContent.clinic}
+              </Text>
+            )}
+            {selectedNotification?.expandedContent?.phoneNumber && (
+              <TouchableOpacity
+                onPress={() => Linking.openURL(`tel:${selectedNotification.expandedContent.phoneNumber}`)}
+              >
+                <Text style={styles.modalPhoneNumber}>
+                  {selectedNotification.expandedContent.phoneNumber}
+                </Text>
+              </TouchableOpacity>
+            )}
+          </ScrollView>
+        </View>
+      </TouchableOpacity>
+    </Modal>
+  );
+
+  const renderActionModal = () => (
+    <Modal animationType="fade" transparent={true} visible={showActionModal} onRequestClose={closeActionModal}>
+      <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={closeActionModal}>
+        <View style={styles.longPressModalContent} onStartShouldSetResponder={() => true}>
           <Text style={styles.modalTitle}>Notification Options</Text>
-          
-          <TouchableOpacity 
-            style={styles.modalOption}
-            onPress={markAsUnread}
-          >
-            <Ionicons name="mail-outline" size={24} color="#3B82F6" />
-            <Text style={styles.modalOptionText}>Mark as Unread</Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity 
-            style={[styles.modalOption, styles.deleteOption]}
-            onPress={showDeleteConfirmation}
-          >
+          {!selectedNotification?.isRead ? (
+            // If the notification is unread (blue), show "Mark as Read"
+            <TouchableOpacity style={styles.modalOption} onPress={markAsReadFromLongPress}>
+              <Ionicons name="mail-open-outline" size={24} color="#3B82F6" />
+              <Text style={styles.modalOptionText}>Mark as Read</Text>
+            </TouchableOpacity>
+          ) : (
+            // If the notification is read, show "Mark as Unread"
+            <TouchableOpacity style={styles.modalOption} onPress={markAsUnread}>
+              <Ionicons name="mail-outline" size={24} color="#3B82F6" />
+              <Text style={styles.modalOptionText}>Mark as Unread</Text>
+            </TouchableOpacity>
+          )}
+
+          <TouchableOpacity style={[styles.modalOption, styles.deleteOption]} onPress={showDeleteConfirmation}>
             <Ionicons name="trash-outline" size={24} color="#EF4444" />
             <Text style={[styles.modalOptionText, styles.deleteText]}>Delete</Text>
           </TouchableOpacity>
-          
-          <TouchableOpacity 
-            style={styles.cancelOption}
-            onPress={closeActionModal}
-          >
+          <TouchableOpacity style={styles.cancelOption} onPress={closeActionModal}>
             <Text style={styles.cancelText}>Cancel</Text>
           </TouchableOpacity>
         </View>
@@ -304,45 +274,33 @@ const NotificationScreen = ({ navigation, route }) => {
     </Modal>
   );
 
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
-      
-      {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity 
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
-        >
+        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
           <Ionicons name="chevron-back" size={24} color="#374151" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Notification</Text>
       </View>
-
-      {/* Content */}
       <View style={styles.content}>
-        {notifications.length === 0 ? (
-          renderEmptyState()
-        ) : (
-          <ScrollView 
-            style={styles.scrollView}
-            contentContainerStyle={styles.scrollContent}
-            showsVerticalScrollIndicator={false}
-          >
-            <Text style={styles.sectionTitle}>Previously</Text>
-            {notifications.map(renderNotificationItem)}
-          </ScrollView>
-        )}
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          <Text style={styles.sectionTitle}>Previously</Text>
+          {notifications.map(renderNotificationItem)}
+        </ScrollView>
       </View>
-
-      {/* Action Modal */}
+      {renderNotificationModal()}
       {renderActionModal()}
-
-      {/* Bottom Navigation */}
-      <Navbar navigation={navigation} activeTab="Profile" />
+      {/* <Navbar navigation={navigation} activeTab="Notification" /> */}
     </SafeAreaView>
   );
 };
+
 
 const styles = StyleSheet.create({
   container: {
@@ -368,101 +326,16 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '600',
     color: '#111827',
-    flex: 1,
   },
   content: {
     flex: 1,
   },
-  
-  // Empty State Styles
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 40,
-  },
-  emptyIconContainer: {
-    position: 'relative',
-    marginBottom: 40,
-    alignItems: 'center',
-  },
-  folderIcon: {
-    position: 'relative',
-    width: 80,
-    height: 60,
-  },
-  folderBase: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    width: 80,
-    height: 50,
-    backgroundColor: '#3B82F6',
-    borderRadius: 4,
-  },
-  folderTop: {
-    position: 'absolute',
-    bottom: 25,
-    left: 10,
-    width: 60,
-    height: 35,
-    backgroundColor: '#60A5FA',
-    borderRadius: 4,
-  },
-  folderTab: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    width: 30,
-    height: 15,
-    backgroundColor: '#3B82F6',
-    borderTopLeftRadius: 4,
-    borderTopRightRadius: 4,
-  },
-  bellIcon: {
-    position: 'absolute',
-    right: -10,
-    top: 10,
-  },
-  exclamationBadge: {
-    position: 'absolute',
-    top: -5,
-    right: -5,
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: '#F1C40F',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: '#FFFFFF',
-  },
-  exclamationText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: 'bold',
-  },
-  emptyTitle: {
-    fontSize: 24,
-    fontWeight: '600',
-    color: '#111827',
-    marginBottom: 16,
-    textAlign: 'center',
-  },
-  emptyMessage: {
-    fontSize: 16,
-    color: '#6B7280',
-    textAlign: 'center',
-    lineHeight: 24,
-  },
-  
-  // Notifications List Styles
   scrollView: {
     flex: 1,
   },
   scrollContent: {
     padding: 16,
-    paddingBottom: 100, // Account for navbar
+    paddingBottom: 100,
   },
   sectionTitle: {
     fontSize: 18,
@@ -482,15 +355,10 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   unreadNotification: {
-    borderLeftWidth: 4,
-    borderLeftColor: '#3B82F6',
-  },
-  reminderNotification: {
     backgroundColor: '#3B82F6',
   },
-  notificationContent: {
-    flex: 1,
-  },
+  // Removed reminderNotification style
+
   notificationHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -502,9 +370,11 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#111827',
   },
-  reminderText: {
+  // Removed reminderText style
+  unreadText: {
     color: '#FFFFFF',
   },
+
   notificationMeta: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -514,53 +384,31 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     marginRight: 8,
   },
-  reminderDateText: {
-    color: '#E5E7EB',
-  },
+  // Removed reminderDateText style
+
   newIndicator: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#3B82F6',
-  },
-  reminderIndicator: {
     backgroundColor: '#FFFFFF',
+    marginRight: 8,
+  },
+  // Removed reminderIndicator style
+
+  notificationContent: {
+    flex: 1,
   },
   notificationMessage: {
     fontSize: 14,
     color: '#374151',
     lineHeight: 20,
   },
-  reminderMessageText: {
+  // Removed reminderMessageText style
+  unreadMessageText: {
     color: '#F3F4F6',
   },
-  expandIcon: {
-    marginLeft: 8,
-  },
-  expandedNotification: {
-    minHeight: 120,
-  },
-  actionButton: {
-    backgroundColor: '#3B82F6',
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    marginTop: 12,
-    alignSelf: 'flex-start',
-  },
-  reminderActionButton: {
-    backgroundColor: '#FFFFFF',
-  },
-  actionButtonText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  reminderActionButtonText: {
-    color: '#3B82F6',
-  },
 
-  // Modal Styles
+  // Notification Modal Styles
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
@@ -572,19 +420,63 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 24,
     margin: 20,
+    width: '90%',
+    maxHeight: '80%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#111827',
+  },
+  modalMessageFull: {
+    fontSize: 16,
+    color: '#374151',
+    lineHeight: 24,
+    marginBottom: 16,
+  },
+  modalExpandedText: {
+    fontSize: 14,
+    color: '#6B7280',
+    marginBottom: 5,
+  },
+  modalPhoneNumber: {
+    fontSize: 14,
+    color: '#3B82F6',
+    textDecorationLine: 'underline',
+  },
+  deleteButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 20,
+    padding: 12,
+    backgroundColor: '#FEF2F2',
+    borderRadius: 8,
+  },
+  deleteButtonText: {
+    color: '#EF4444',
+    marginLeft: 8,
+    fontWeight: '500',
+  },
+
+  // Long-press Action Modal Styles (renamed for clarity)
+  longPressModalContent: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 24,
+    margin: 20,
     minWidth: 280,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.25,
     shadowRadius: 8,
     elevation: 8,
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#111827',
-    marginBottom: 20,
-    textAlign: 'center',
   },
   modalOption: {
     flexDirection: 'row',
