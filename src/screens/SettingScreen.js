@@ -1,15 +1,16 @@
 "use client"
-import React from "react"
+import React, { useContext } from "react"
 import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, Image, ScrollView } from "react-native"
 import { Ionicons } from "@expo/vector-icons"
 import { SafeAreaProvider } from "react-native-safe-area-context"
 import Navbar from "../navigations/navbar"
+import { UserContext } from '../context/UserContext'
 
 export default function SettingsScreen({ navigation }) {
+  const { userProfile } = useContext(UserContext)
+
   const handleMenuPress = (menuItem) => {
     console.log("Menu pressed:", menuItem)
-    // Add navigation logic here based on menuItem
-    // Example: navigation.navigate(menuItem)
     if (menuItem === "Account") {
       navigation?.navigate("AccountSettings");
     }
@@ -17,8 +18,6 @@ export default function SettingsScreen({ navigation }) {
 
   const handleLogout = () => {
     console.log("Logout pressed")
-    // Add navigation logic to go back to the Login screen
-    // This will work if Login is the previous screen in the stack
     navigation.navigate("Login")
   }
 
@@ -34,16 +33,19 @@ export default function SettingsScreen({ navigation }) {
         >
           
           {/* Profile Section */}
-          <View style={styles.profileSection}>
+          <TouchableOpacity 
+            style={styles.profileSection}
+            onPress={() => handleMenuPress("Account")}
+          >
             <View style={styles.profileImageContainer}>
               <Image 
-                source={require("../../assets/profile/photo.png")} 
+                source={userProfile.profileImage}
                 style={styles.profileImage} 
               />
             </View>
-            <Text style={styles.profileName}>Clara Lauren</Text>
-            <Text style={styles.profileEmail}>claralaurent@gmail.com</Text>
-          </View>
+            <Text style={styles.profileName}>{userProfile.name}</Text>
+            <Text style={styles.profileEmail}>{userProfile.email}</Text>
+          </TouchableOpacity>
 
           {/* Settings Title */}
           <Text style={styles.sectionTitle}>Settings</Text>

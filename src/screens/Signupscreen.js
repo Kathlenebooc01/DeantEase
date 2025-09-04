@@ -16,41 +16,60 @@ import {
   ActivityIndicator,
   Dimensions,
   ScrollView,
-  Image, // Step 1: Import Image component
+  Image,
+  Modal,
 } from "react-native"
 import { Ionicons } from "@expo/vector-icons"
 import { SafeAreaProvider } from "react-native-safe-area-context"
+import DateTimePicker from "@react-native-community/datetimepicker"
+import { Picker } from "@react-native-picker/picker"
 
-// Step 1: Import Firebase Auth & Firestore functions and your config
-import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
-import { doc, setDoc } from "firebase/firestore";
-import { auth, db } from '../config/firebaseConfig';
-
+import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth"
+import { doc, setDoc } from "firebase/firestore"
+import { auth, db } from "../config/firebaseConfig"
 
 export default function SignUpScreen({ navigation }) {
-  const [fullName, setFullName] = useState("")
+  const [firstName, setFirstName] = useState("")
+  const [lastName, setLastName] = useState("")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
+  const [birthDate, setBirthDate] = useState(new Date())
+  const [gender, setGender] = useState("")
+  const [phoneNumber, setPhoneNumber] = useState("")
+  const [address, setAddress] = useState("")
   const [secureTextPassword, setSecureTextPassword] = useState(true)
   const [secureTextConfirm, setSecureTextConfirm] = useState(true)
   const [isLoading, setIsLoading] = useState(false)
   const [acceptTerms, setAcceptTerms] = useState(false)
-  const [registrationSuccess, setRegistrationSuccess] = useState(false); // New state for success popup
+  const [registrationSuccess, setRegistrationSuccess] = useState(false)
+  const [showTermsModal, setShowTermsModal] = useState(false)
 
   // Focus states
-  const [fullNameFocused, setFullNameFocused] = useState(false)
+  const [firstNameFocused, setFirstNameFocused] = useState(false)
+  const [lastNameFocused, setLastNameFocused] = useState(false)
   const [emailFocused, setEmailFocused] = useState(false)
   const [passwordFocused, setPasswordFocused] = useState(false)
   const [confirmPasswordFocused, setConfirmPasswordFocused] = useState(false)
+  const [birthDateFocused, setBirthDateFocused] = useState(false)
+  const [phoneNumberFocused, setPhoneNumberFocused] = useState(false)
+  const [addressFocused, setAddressFocused] = useState(false)
 
   // Error states
-  const [fullNameError, setFullNameError] = useState("")
+  const [firstNameError, setFirstNameError] = useState("")
+  const [lastNameError, setLastNameError] = useState("")
   const [emailError, setEmailError] = useState("")
   const [passwordError, setPasswordError] = useState("")
   const [confirmPasswordError, setConfirmPasswordError] = useState("")
+  const [birthDateError, setBirthDateError] = useState("")
+  const [genderError, setGenderError] = useState("")
+  const [phoneNumberError, setPhoneNumberError] = useState("")
+  const [addressError, setAddressError] = useState("")
   const [termsError, setTermsError] = useState("")
-  const [generalError, setGeneralError] = useState("") // For Firebase errors
+  const [generalError, setGeneralError] = useState("")
+
+  // Date picker state
+  const [showDatePicker, setShowDatePicker] = useState(false)
 
   // Button animation
   const buttonScale = useRef(new Animated.Value(1)).current
@@ -60,21 +79,72 @@ export default function SignUpScreen({ navigation }) {
     return emailRegex.test(email)
   }
 
-  // Step 2: Update the handleSignUp function
+  // Enhanced password validation function
+  const validatePassword = (password) => {
+    const minLength = 12
+    const hasUpperCase = /[A-Z]/.test(password)
+    const hasLowerCase = /[a-z]/.test(password)
+    const hasNumbers = /\d/.test(password)
+    const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(password)
+    
+    const requirements = {
+      minLength: password.length >= minLength,
+      hasUpperCase,
+      hasLowerCase,
+      hasNumbers,
+      hasSpecialChar
+    }
+    
+    const isValid = Object.values(requirements).every(req => req === true)
+    
+    return { isValid, requirements }
+  }
+
+  // Get password requirements for display
+  const getPasswordRequirements = () => {
+    if (!password) return null
+    
+    const { requirements } = validatePassword(password)
+    
+    return [
+      { text: "At least 12 characters", met: requirements.minLength },
+      { text: "One uppercase letter (A-Z)", met: requirements.hasUpperCase },
+      { text: "One lowercase letter (a-z)", met: requirements.hasLowerCase },
+      { text: "One number (0-9)", met: requirements.hasNumbers },
+      { text: "One special character (!@#$%^&*)", met: requirements.hasSpecialChar }
+    ]
+  }
+
+  // Date picker handler
+  const onDateChange = (event, selectedDate) => {
+    const currentDate = selectedDate || birthDate
+    setShowDatePicker(Platform.OS === "ios")
+    setBirthDate(currentDate)
+    if (birthDateError) setBirthDateError("")
+  }
+
   const handleSignUp = async () => {
     // Reset errors
-    setFullNameError("")
+    setFirstNameError("")
+    setLastNameError("")
     setEmailError("")
     setPasswordError("")
     setConfirmPasswordError("")
+    setBirthDateError("")
+    setGenderError("")
+    setPhoneNumberError("")
+    setAddressError("")
     setTermsError("")
     setGeneralError("")
 
-
-    // --- Form Validation (Keep this) ---
+    // Form Validation
     let hasError = false
-    if (!fullName.trim()) {
-      setFullNameError("Full name is required")
+    if (!firstName.trim()) {
+      setFirstNameError("First name is required")
+      hasError = true
+    }
+    if (!lastName.trim()) {
+      setLastNameError("Last name is required")
       hasError = true
     }
     if (!email.trim()) {
@@ -87,9 +157,12 @@ export default function SignUpScreen({ navigation }) {
     if (!password.trim()) {
       setPasswordError("Password is required")
       hasError = true
-    } else if (password.length < 6) {
-      setPasswordError("Password must be at least 6 characters")
-      hasError = true
+    } else {
+      const { isValid } = validatePassword(password)
+      if (!isValid) {
+        setPasswordError("Password does not meet all requirements")
+        hasError = true
+      }
     }
     if (!confirmPassword.trim()) {
       setConfirmPasswordError("Please confirm your password")
@@ -98,60 +171,100 @@ export default function SignUpScreen({ navigation }) {
       setConfirmPasswordError("Passwords do not match")
       hasError = true
     }
+    if (!birthDate) {
+      setBirthDateError("Birth date is required")
+      hasError = true
+    }
+    if (!gender) {
+      setGenderError("Gender is required")
+      hasError = true
+    }
+    if (!phoneNumber.trim()) {
+      setPhoneNumberError("Phone number is required")
+      hasError = true
+    } else if (phoneNumber.length !== 10) {
+      setPhoneNumberError("Phone number must be exactly 10 digits")
+      hasError = true
+    } else if (!phoneNumber.startsWith('9')) {
+      setPhoneNumberError("Phone number must start with 9")
+      hasError = true
+    }
+    if (!address.trim()) {
+      setAddressError("Address is required")
+      hasError = true
+    }
     if (!acceptTerms) {
       setTermsError("Please accept the Terms and Conditions")
       hasError = true
     }
     if (hasError) return
 
-    // --- Button Animation (Keep this) ---
+    // Combine first and last name for display name
+    const fullName = `${firstName.trim()} ${lastName.trim()}`
+
+    // Button Animation
     Animated.sequence([
-      Animated.timing(buttonScale, { toValue: 0.95, duration: 100, useNativeDriver: true }),
-      Animated.timing(buttonScale, { toValue: 1, duration: 100, useNativeDriver: true }),
+      Animated.timing(buttonScale, {
+        toValue: 0.95,
+        duration: 100,
+        useNativeDriver: true,
+      }),
+      Animated.timing(buttonScale, {
+        toValue: 1,
+        duration: 100,
+        useNativeDriver: true,
+      }),
     ]).start()
 
     setIsLoading(true)
 
-    // --- Firebase Logic ---
+    // Firebase Logic
     try {
       // 1. Create the user in Firebase Authentication
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      const user = userCredential.user;
+      const userCredential = await createUserWithEmailAndPassword(
+        auth,
+        email,
+        password
+      )
+      const user = userCredential.user
 
-      // 2. (Optional but recommended) Update the user's profile with their name
+      // 2. Update the user's profile with their name
       await updateProfile(user, {
-        displayName: fullName
-      });
+        displayName: fullName,
+      })
 
       // 3. Create a document in Firestore to store additional user info
-      // We use the user's unique ID (uid) as the document ID
       await setDoc(doc(db, "users", user.uid), {
         uid: user.uid,
-        fullName: fullName,
+        firstName: firstName,
+        lastName: lastName,
         email: email,
+        birthDate: birthDate.toISOString(),
+        gender: gender,
+        phoneNumber: `+63${phoneNumber}`, // Save with country code
+        address: address,
         createdAt: new Date(),
-      });
+      })
 
-      console.log("User account created & data saved in Firestore!");
+      console.log("User account created & data saved in Firestore!")
 
       // 4. On success, hide the loader, then show the registration complete pop-up
-      setIsLoading(false);
-      setRegistrationSuccess(true);
-
+      setIsLoading(false)
+      setRegistrationSuccess(true)
     } catch (error) {
-      console.error("Firebase Sign Up Error:", error.code, error.message);
-      // Handle specific Firebase errors
-      if (error.code === 'auth/email-already-in-use') {
-        setGeneralError('That email address is already in use!');
-      } else if (error.code === 'auth/invalid-email') {
-        setGeneralError('That email address is invalid!');
-      } else if (error.code === 'auth/weak-password') {
-        setGeneralError('Password should be at least 6 characters.');
+      console.error("Firebase Sign Up Error:", error.code, error.message)
+      if (error.code === "auth/email-already-in-use") {
+        setGeneralError("That email address is already in use!")
+      } else if (error.code === "auth/invalid-email") {
+        setGeneralError("That email address is invalid!")
+      } else if (error.code === "auth/weak-password") {
+        setGeneralError("Password does not meet security requirements.")
+      } else if (error.code === "auth/invalid-password") {
+        setGeneralError("Password must meet all security requirements.")
       } else {
-        setGeneralError("An unexpected error occurred. Please try again.");
+        setGeneralError("An unexpected error occurred. Please try again.")
       }
-      // Ensure loading state is turned off on error
-      setIsLoading(false);
+      setIsLoading(false)
     }
   }
 
@@ -160,17 +273,108 @@ export default function SignUpScreen({ navigation }) {
   }
 
   const handleTermsPress = () => {
-    // Implement a proper modal or screen for terms in a real app
-    console.log("Terms and Conditions pressed");
+    setShowTermsModal(true)
   }
 
-  // Conditional rendering based on registration success
+  // Terms Modal Component
+  const TermsModal = () => (
+    <Modal
+      animationType="slide"
+      transparent={true}
+      visible={showTermsModal}
+      onRequestClose={() => setShowTermsModal(false)}
+    >
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>Terms and Conditions</Text>
+            <TouchableOpacity
+              onPress={() => setShowTermsModal(false)}
+              style={styles.closeButton}
+            >
+              <Ionicons name="close" size={24} color="#333" />
+            </TouchableOpacity>
+          </View>
+          
+          <ScrollView style={styles.modalContent} showsVerticalScrollIndicator={false}>
+            <View style={styles.termsSection}>
+              <Text style={styles.termsSectionTitle}>1. Use of Service</Text>
+              <Text style={styles.termsSectionText}>
+                Our system is designed to help patients book appointments and access dental records securely. By using this platform, you agree to provide accurate information and use the system responsibly.
+              </Text>
+            </View>
+
+            <View style={styles.termsSection}>
+              <Text style={styles.termsSectionTitle}>2. Privacy and Security</Text>
+              <Text style={styles.termsSectionText}>
+                All patient information is protected and handled with confidentiality. Users must keep their login credentials secure and not share them with others.
+              </Text>
+            </View>
+
+            <View style={styles.termsSection}>
+              <Text style={styles.termsSectionTitle}>3. Appointments</Text>
+              <Text style={styles.termsSectionText}>
+                Appointments booked through the system are subject to confirmation by the clinic. Patients are encouraged to arrive on time or cancel in advance if unable to attend.
+              </Text>
+            </View>
+
+            <View style={styles.termsSection}>
+              <Text style={styles.termsSectionTitle}>4. Prohibited Activities</Text>
+              <Text style={styles.termsSectionText}>
+                Users must not misuse the system, attempt to access unauthorized data, or disrupt the platform's operation.
+              </Text>
+            </View>
+
+            <View style={styles.termsSection}>
+              <Text style={styles.termsSectionTitle}>5. Liability</Text>
+              <Text style={styles.termsSectionText}>
+                The clinic and developers are not responsible for delays, errors, or issues caused by misuse of the system or technical problems beyond our control.
+              </Text>
+            </View>
+
+            <View style={styles.termsSection}>
+              <Text style={styles.termsSectionTitle}>6. Changes to Terms</Text>
+              <Text style={styles.termsSectionText}>
+                The clinic may update these terms anytime, and continued use of the system means you accept the updated terms.
+              </Text>
+            </View>
+          </ScrollView>
+
+          <View style={styles.modalFooter}>
+            <TouchableOpacity
+              style={styles.acceptButton}
+              onPress={() => {
+                setAcceptTerms(true)
+                setShowTermsModal(false)
+                if (termsError) setTermsError("")
+              }}
+            >
+              <Text style={styles.acceptButtonText}>Accept Terms</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity
+              style={styles.declineButton}
+              onPress={() => setShowTermsModal(false)}
+            >
+              <Text style={styles.declineButtonText}>Close</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  )
+
   if (registrationSuccess) {
     return (
       <SafeAreaProvider>
         <SafeAreaView style={styles.container}>
           <View style={styles.successContainer}>
-            <Ionicons name="checkmark-circle-outline" size={100} color="#ffffff" style={styles.successIcon} />
+            <Ionicons
+              name="checkmark-circle-outline"
+              size={100}
+              color="#ffffff"
+              style={styles.successIcon}
+            />
             <Text style={styles.successTitle}>Registration Complete!</Text>
             <Text style={styles.successMessage}>
               Your account has been successfully created.
@@ -184,10 +388,9 @@ export default function SignUpScreen({ navigation }) {
           </View>
         </SafeAreaView>
       </SafeAreaProvider>
-    );
+    )
   }
 
-  // Original sign up form
   return (
     <SafeAreaProvider>
       <SafeAreaView style={styles.container}>
@@ -206,50 +409,110 @@ export default function SignUpScreen({ navigation }) {
               <View style={styles.header}>
                 <Text style={styles.hello}></Text>
                 <Text style={styles.welcome}>
-                   <Text style={styles.brand}></Text>
+                  <Text style={styles.brand}></Text>
                 </Text>
               </View>
 
-              {/* Step 2: Add the image component here */}
-              <Image 
-                source={require('../../assets/Login/t.png')}
+              <Image
+                source={require("../../assets/Login/t.png")}
                 style={styles.signUpImage}
               />
-              
               <Text style={styles.signUpTitle}>Sign Up</Text>
-              
-              {/* Display general error message here */}
-              {generalError ? <Text style={styles.generalErrorText}>{generalError}</Text> : null}
 
-              {/* Full Name Input */}
+              {generalError ? (
+                <Text style={styles.generalErrorText}>{generalError}</Text>
+              ) : null}
+
+              {/* FIRST NAME INPUT */}
               <View style={styles.inputContainer}>
-                <Text style={styles.label}>Full Name</Text>
-                <View style={[styles.inputWrapper, fullNameFocused && styles.inputFocused, fullNameError && styles.inputError]}>
-                  <Ionicons name="person-outline" size={20} color="#ffffff" style={styles.inputIcon} />
+                <Text style={styles.label}>First Name</Text>
+                <View
+                  style={[
+                    styles.inputWrapper,
+                    firstNameFocused && styles.inputFocused,
+                    firstNameError && styles.inputError,
+                  ]}
+                >
+                  <Ionicons
+                    name="person-outline"
+                    size={20}
+                    color="#ffffff"
+                    style={styles.inputIcon}
+                  />
                   <TextInput
                     style={styles.input}
-                    placeholder="Enter your full name"
-                    value={fullName}
+                    placeholder="Enter your first name"
+                    value={firstName}
                     onChangeText={(text) => {
-                      setFullName(text)
-                      if (fullNameError) setFullNameError("")
+                      setFirstName(text)
+                      if (firstNameError) setFirstNameError("")
                       if (generalError) setGeneralError("")
                     }}
-                    onFocus={() => setFullNameFocused(true)}
-                    onBlur={() => setFullNameFocused(false)}
+                    onFocus={() => setFirstNameFocused(true)}
+                    onBlur={() => setFirstNameFocused(false)}
                     autoCapitalize="words"
                     placeholderTextColor="rgba(255,255,255,0.7)"
                     returnKeyType="next"
                   />
                 </View>
-                {fullNameError ? <Text style={styles.errorText}>{fullNameError}</Text> : null}
+                {firstNameError ? (
+                  <Text style={styles.errorText}>{firstNameError}</Text>
+                ) : null}
               </View>
 
-              {/* Email Input */}
+              {/* LAST NAME INPUT */}
+              <View style={styles.inputContainer}>
+                <Text style={styles.label}>Last Name</Text>
+                <View
+                  style={[
+                    styles.inputWrapper,
+                    lastNameFocused && styles.inputFocused,
+                    lastNameError && styles.inputError,
+                  ]}
+                >
+                  <Ionicons
+                    name="person-outline"
+                    size={20}
+                    color="#ffffff"
+                    style={styles.inputIcon}
+                  />
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Enter your last name"
+                    value={lastName}
+                    onChangeText={(text) => {
+                      setLastName(text)
+                      if (lastNameError) setLastNameError("")
+                      if (generalError) setGeneralError("")
+                    }}
+                    onFocus={() => setLastNameFocused(true)}
+                    onBlur={() => setLastNameFocused(false)}
+                    autoCapitalize="words"
+                    placeholderTextColor="rgba(255,255,255,0.7)"
+                    returnKeyType="next"
+                  />
+                </View>
+                {lastNameError ? (
+                  <Text style={styles.errorText}>{lastNameError}</Text>
+                ) : null}
+              </View>
+
+              {/* EMAIL INPUT */}
               <View style={styles.inputContainer}>
                 <Text style={styles.label}>Email</Text>
-                <View style={[styles.inputWrapper, emailFocused && styles.inputFocused, emailError && styles.inputError]}>
-                  <Ionicons name="mail-outline" size={20} color="#ffffff" style={styles.inputIcon} />
+                <View
+                  style={[
+                    styles.inputWrapper,
+                    emailFocused && styles.inputFocused,
+                    emailError && styles.inputError,
+                  ]}
+                >
+                  <Ionicons
+                    name="mail-outline"
+                    size={20}
+                    color="#ffffff"
+                    style={styles.inputIcon}
+                  />
                   <TextInput
                     style={styles.input}
                     placeholder="Enter your email"
@@ -267,14 +530,27 @@ export default function SignUpScreen({ navigation }) {
                     returnKeyType="next"
                   />
                 </View>
-                {emailError ? <Text style={styles.errorText}>{emailError}</Text> : null}
+                {emailError ? (
+                  <Text style={styles.errorText}>{emailError}</Text>
+                ) : null}
               </View>
 
-              {/* Password Input */}
+              {/* PASSWORD INPUT */}
               <View style={styles.inputContainer}>
                 <Text style={styles.label}>Password</Text>
-                <View style={[styles.inputWrapper, passwordFocused && styles.inputFocused, passwordError && styles.inputError]}>
-                  <Ionicons name="lock-closed-outline" size={20} color="#ffffff" style={styles.inputIcon} />
+                <View
+                  style={[
+                    styles.inputWrapper,
+                    passwordFocused && styles.inputFocused,
+                    passwordError && styles.inputError,
+                  ]}
+                >
+                  <Ionicons
+                    name="lock-closed-outline"
+                    size={20}
+                    color="#ffffff"
+                    style={styles.inputIcon}
+                  />
                   <TextInput
                     style={styles.input}
                     placeholder="Enter your password"
@@ -290,18 +566,66 @@ export default function SignUpScreen({ navigation }) {
                     placeholderTextColor="rgba(255,255,255,0.7)"
                     returnKeyType="next"
                   />
-                  <TouchableOpacity onPress={() => setSecureTextPassword(!secureTextPassword)} style={styles.eyeIcon}>
-                    <Ionicons name={secureTextPassword ? "eye-off-outline" : "eye-outline"} size={20} color="#ffffff" />
+                  <TouchableOpacity
+                    onPress={() => setSecureTextPassword(!secureTextPassword)}
+                    style={styles.eyeIcon}
+                  >
+                    <Ionicons
+                      name={secureTextPassword ? "eye-off-outline" : "eye-outline"}
+                      size={20}
+                      color="#ffffff"
+                    />
                   </TouchableOpacity>
                 </View>
-                {passwordError ? <Text style={styles.errorText}>{passwordError}</Text> : null}
+                {passwordError ? (
+                  <Text style={styles.errorText}>{passwordError}</Text>
+                ) : null}
+                
+                {/* Password Requirements Display */}
+                {password ? (
+                  <View style={styles.passwordRequirements}>
+                    <Text style={styles.passwordRequirementsTitle}>
+                      Password Requirements:
+                    </Text>
+                    <View style={styles.requirementsList}>
+                      {getPasswordRequirements()?.map((req, index) => (
+                        <View key={index} style={styles.requirementItem}>
+                          <Ionicons 
+                            name={req.met ? "checkmark-circle" : "close-circle"} 
+                            size={16} 
+                            color={req.met ? "#4ADE80" : "#EF4444"} 
+                          />
+                          <Text 
+                            style={[
+                              styles.requirementText, 
+                              { color: req.met ? "#4ADE80" : "#EF4444" }
+                            ]}
+                          >
+                            {req.text}
+                          </Text>
+                        </View>
+                      ))}
+                    </View>
+                  </View>
+                ) : null}
               </View>
 
-              {/* Confirm Password Input */}
+              {/* CONFIRM PASSWORD INPUT */}
               <View style={styles.inputContainer}>
                 <Text style={styles.label}>Confirm Password</Text>
-                <View style={[styles.inputWrapper, confirmPasswordFocused && styles.inputFocused, confirmPasswordError && styles.inputError]}>
-                  <Ionicons name="lock-closed-outline" size={20} color="#ffffff" style={styles.inputIcon} />
+                <View
+                  style={[
+                    styles.inputWrapper,
+                    confirmPasswordFocused && styles.inputFocused,
+                    confirmPasswordError && styles.inputError,
+                  ]}
+                >
+                  <Ionicons
+                    name="lock-closed-outline"
+                    size={20}
+                    color="#ffffff"
+                    style={styles.inputIcon}
+                  />
                   <TextInput
                     style={styles.input}
                     placeholder="Confirm your password"
@@ -318,14 +642,190 @@ export default function SignUpScreen({ navigation }) {
                     returnKeyType="done"
                     onSubmitEditing={handleSignUp}
                   />
-                  <TouchableOpacity onPress={() => setSecureTextConfirm(!secureTextConfirm)} style={styles.eyeIcon}>
-                    <Ionicons name={secureTextConfirm ? "eye-off-outline" : "eye-outline"} size={20} color="#ffffff" />
+                  <TouchableOpacity
+                    onPress={() => setSecureTextConfirm(!secureTextConfirm)}
+                    style={styles.eyeIcon}
+                  >
+                    <Ionicons
+                      name={secureTextConfirm ? "eye-off-outline" : "eye-outline"}
+                      size={20}
+                      color="#ffffff"
+                    />
                   </TouchableOpacity>
                 </View>
-                {confirmPasswordError ? <Text style={styles.errorText}>{confirmPasswordError}</Text> : null}
+                {confirmPasswordError ? (
+                  <Text style={styles.errorText}>{confirmPasswordError}</Text>
+                ) : null}
               </View>
 
-              {/* Terms and Conditions */}
+              {/* BIRTH DATE INPUT */}
+              <View style={styles.inputContainer}>
+                <Text style={styles.label}>Birth Date</Text>
+                <TouchableOpacity
+                  style={[
+                    styles.inputWrapper,
+                    birthDateFocused && styles.inputFocused,
+                    birthDateError && styles.inputError,
+                  ]}
+                  onPress={() => setShowDatePicker(true)}
+                >
+                  <Ionicons
+                    name="calendar-outline"
+                    size={20}
+                    color="#ffffff"
+                    style={styles.inputIcon}
+                  />
+                  <TextInput
+                    style={styles.dateInput}
+                    value={birthDate ? birthDate.toLocaleDateString() : ""}
+                    editable={false}
+                    onFocus={() => setBirthDateFocused(true)}
+                    onBlur={() => setBirthDateFocused(false)}
+                    placeholder="Select your birth date"
+                    placeholderTextColor="rgba(255,255,255,0.7)"
+                  />
+                </TouchableOpacity>
+                {birthDateError ? (
+                  <Text style={styles.errorText}>{birthDateError}</Text>
+                ) : null}
+                {showDatePicker && (
+                  <DateTimePicker
+                    testID="dateTimePicker"
+                    value={birthDate || new Date()}
+                    mode="date"
+                    display="default"
+                    onChange={onDateChange}
+                    maximumDate={new Date()}
+                  />
+                )}
+              </View>
+
+              {/* GENDER PICKER */}
+              <View style={styles.inputContainer}>
+                <Text style={styles.label}>Gender</Text>
+                <View
+                  style={[
+                    styles.inputWrapper,
+                    { paddingHorizontal: 0 },
+                    genderError && styles.inputError,
+                  ]}
+                >
+                  <Ionicons
+                    name="transgender-outline"
+                    size={20}
+                    color="#ffffff"
+                    style={[styles.inputIcon, { marginLeft: 16 }]}
+                  />
+                  <Picker
+                    selectedValue={gender}
+                    style={styles.picker}
+                    onValueChange={(itemValue) => {
+                      setGender(itemValue)
+                      if (genderError) setGenderError("")
+                    }}
+                    dropdownIconColor="#ffffff"
+                    mode="dropdown"
+                  >
+                    <Picker.Item
+                      label="Select your gender"
+                      value=""
+                      style={styles.pickerPlaceholder}
+                    />
+                    <Picker.Item label="Male" value="Male" />
+                    <Picker.Item label="Female" value="Female" />
+                    <Picker.Item
+                      label="Prefer Not To Say"
+                      value="Prefer Not To Say"
+                    />
+                  </Picker>
+                </View>
+                {genderError ? (
+                  <Text style={styles.errorText}>{genderError}</Text>
+                ) : null}
+              </View>
+
+              {/* PHONE NUMBER INPUT - FIXED VERSION */}
+              <View style={styles.inputContainer}>
+                <Text style={styles.label}>Phone Number</Text>
+                <View
+                  style={[
+                    styles.inputWrapper,
+                    phoneNumberFocused && styles.inputFocused,
+                    phoneNumberError && styles.inputError,
+                  ]}
+                >
+                  <Ionicons
+                    name="call-outline"
+                    size={20}
+                    color="#ffffff"
+                    style={styles.inputIcon}
+                  />
+                  <Text style={styles.countryCode}>+63</Text>
+                  <TextInput
+                    style={[styles.input, { marginLeft: 8 }]}
+                    placeholder="9XX XXX XXXX"
+                    placeholderTextColor="rgba(255,255,255,0.7)"
+                    value={phoneNumber}
+                    onChangeText={(text) => {
+                      // Remove any non-numeric characters
+                      const numericOnly = text.replace(/[^0-9]/g, '');
+                      
+                      // Limit to 10 digits
+                      if (numericOnly.length <= 10) {
+                        setPhoneNumber(numericOnly);
+                        if (phoneNumberError) setPhoneNumberError("");
+                      }
+                    }}
+                    onFocus={() => setPhoneNumberFocused(true)}
+                    onBlur={() => setPhoneNumberFocused(false)}
+                    keyboardType="numeric"
+                    maxLength={10}
+                    returnKeyType="done"
+                  />
+                </View>
+                {phoneNumberError ? (
+                  <Text style={styles.errorText}>{phoneNumberError}</Text>
+                ) : null}
+              </View>
+
+              {/* ADDRESS INPUT */}
+              <View style={styles.inputContainer}>
+                <Text style={styles.label}>Address</Text>
+                <View
+                  style={[
+                    styles.inputWrapper,
+                    addressFocused && styles.inputFocused,
+                    addressError && styles.inputError,
+                  ]}
+                >
+                  <Ionicons
+                    name="location-outline"
+                    size={20}
+                    color="#ffffff"
+                    style={styles.inputIcon}
+                  />
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Enter your address"
+                    value={address}
+                    onChangeText={(text) => {
+                      setAddress(text)
+                      if (addressError) setAddressError("")
+                    }}
+                    onFocus={() => setAddressFocused(true)}
+                    onBlur={() => setAddressFocused(false)}
+                    autoCapitalize="words"
+                    placeholderTextColor="rgba(255,255,255,0.7)"
+                    returnKeyType="done"
+                    onSubmitEditing={handleSignUp}
+                  />
+                </View>
+                {addressError ? (
+                  <Text style={styles.errorText}>{addressError}</Text>
+                ) : null}
+              </View>
+
+              {/* TERMS AND CONDITIONS */}
               <View style={styles.termsContainer}>
                 <TouchableOpacity
                   onPress={() => {
@@ -334,8 +834,15 @@ export default function SignUpScreen({ navigation }) {
                   }}
                   style={styles.checkboxContainer}
                 >
-                  <View style={[styles.checkbox, acceptTerms && styles.checkboxChecked]}>
-                    {acceptTerms && <Ionicons name="checkmark" size={14} color="#3F8FBA" />}
+                  <View
+                    style={[
+                      styles.checkbox,
+                      acceptTerms && styles.checkboxChecked,
+                    ]}
+                  >
+                    {acceptTerms && (
+                      <Ionicons name="checkmark" size={14} color="#3F8FBA" />
+                    )}
                   </View>
                   <Text style={styles.termsText}>
                     I accept{" "}
@@ -344,13 +851,20 @@ export default function SignUpScreen({ navigation }) {
                     </Text>
                   </Text>
                 </TouchableOpacity>
-                {termsError ? <Text style={[styles.errorText, { marginLeft: 0 }]}>{termsError}</Text> : null}
+                {termsError ? (
+                  <Text style={[styles.errorText, { marginLeft: 0 }]}>
+                    {termsError}
+                  </Text>
+                ) : null}
               </View>
 
-
+              {/* SIGN UP BUTTON */}
               <Animated.View style={{ transform: [{ scale: buttonScale }] }}>
                 <TouchableOpacity
-                  style={[styles.signUpButton, isLoading && styles.signUpButtonDisabled]}
+                  style={[
+                    styles.signUpButton,
+                    isLoading && styles.signUpButtonDisabled,
+                  ]}
                   onPress={handleSignUp}
                   disabled={isLoading}
                 >
@@ -362,21 +876,28 @@ export default function SignUpScreen({ navigation }) {
                 </TouchableOpacity>
               </Animated.View>
 
-              <TouchableOpacity onPress={handleLogin} style={styles.loginContainer}>
+              {/* LOGIN LINK */}
+              <TouchableOpacity
+                onPress={handleLogin}
+                style={styles.loginContainer}
+              >
                 <Text style={styles.login}>
-                  Already have an account? <Text style={styles.loginLink}>Login here</Text>
+                  Already have an account?{" "}
+                  <Text style={styles.loginLink}>Login here</Text>
                 </Text>
               </TouchableOpacity>
             </ScrollView>
           </TouchableWithoutFeedback>
         </KeyboardAvoidingView>
+
+        {/* TERMS MODAL */}
+        <TermsModal />
       </SafeAreaView>
     </SafeAreaProvider>
   )
 }
 
 const styles = StyleSheet.create({
-  // ... (Your existing styles remain unchanged)
   container: {
     flex: 1,
     backgroundColor: "#3B82F6",
@@ -389,11 +910,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingTop: Platform.OS === "ios" ? 60 : 80,
     paddingBottom: 40,
-    justifyContent: 'center'
+    justifyContent: "center",
   },
   header: {
     marginBottom: 30,
-    alignItems: 'center'
+    alignItems: "center",
   },
   hello: {
     fontSize: 32,
@@ -412,7 +933,7 @@ const styles = StyleSheet.create({
   signUpImage: {
     width: 140,
     height: 140,
-    alignSelf: 'center',
+    alignSelf: "center",
     marginBottom: -30,
     marginTop: -140,
     borderRadius: 50,
@@ -460,6 +981,12 @@ const styles = StyleSheet.create({
     color: "#ffffff",
     paddingVertical: 0,
   },
+  countryCode: {
+    fontSize: 16,
+    color: "#ffffff",
+    fontWeight: "600",
+    paddingRight: 4,
+  },
   eyeIcon: {
     padding: 4,
     marginLeft: 8,
@@ -471,11 +998,11 @@ const styles = StyleSheet.create({
     marginLeft: 4,
   },
   generalErrorText: {
-    color: '#FFE6E6',
-    textAlign: 'center',
+    color: "#FFE6E6",
+    textAlign: "center",
     marginBottom: 16,
     fontSize: 15,
-    fontWeight: '500'
+    fontWeight: "500",
   },
   termsContainer: {
     marginBottom: 24,
@@ -542,11 +1069,10 @@ const styles = StyleSheet.create({
     color: "#ffffff",
     fontWeight: "600",
   },
-  // New styles for the success screen
   successContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     paddingHorizontal: 24,
   },
   successIcon: {
@@ -554,15 +1080,15 @@ const styles = StyleSheet.create({
   },
   successTitle: {
     fontSize: 28,
-    fontWeight: '700',
-    color: '#ffffff',
+    fontWeight: "700",
+    color: "#ffffff",
     marginBottom: 10,
-    textAlign: 'center',
+    textAlign: "center",
   },
   successMessage: {
     fontSize: 16,
-    color: 'rgba(255,255,255,0.8)',
-    textAlign: 'center',
+    color: "rgba(255,255,255,0.8)",
+    textAlign: "center",
     marginBottom: 30,
   },
   goToLoginButton: {
@@ -581,5 +1107,139 @@ const styles = StyleSheet.create({
     color: "#3F8FBA",
     fontWeight: "600",
     fontSize: 16,
+  },
+  dateInput: {
+    flex: 1,
+    color: "#ffffff",
+    fontSize: 16,
+    paddingVertical: 0,
+  },
+  picker: {
+    flex: 1,
+    color: "white",
+    height: 52,
+  },
+  pickerPlaceholder: {
+    color: "rgba(255,255,255,0.7)",
+  },
+  // Terms Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 20,
+  },
+  modalContainer: {
+    backgroundColor: "#ffffff",
+    borderRadius: 16,
+    width: "100%",
+    maxHeight: "80%",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+    elevation: 5,
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: "#E5E5E5",
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#333",
+  },
+  closeButton: {
+    padding: 5,
+    borderRadius: 15,
+    backgroundColor: "#F5F5F5",
+  },
+  modalContent: {
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    maxHeight: 400,
+  },
+  termsSection: {
+    marginBottom: 20,
+  },
+  termsSectionTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#333",
+    marginBottom: 8,
+  },
+  termsSectionText: {
+    fontSize: 14,
+    color: "#666",
+    lineHeight: 20,
+    textAlign: "justify",
+  },
+  modalFooter: {
+    flexDirection: "row",
+    paddingHorizontal: 20,
+    paddingVertical: 20,
+    borderTopWidth: 1,
+    borderTopColor: "#E5E5E5",
+    gap: 12,
+  },
+  acceptButton: {
+    flex: 1,
+    backgroundColor: "#3B82F6",
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  acceptButtonText: {
+    color: "#ffffff",
+    fontWeight: "600",
+    fontSize: 16,
+  },
+  declineButton: {
+    flex: 1,
+    backgroundColor: "#F5F5F5",
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  declineButtonText: {
+    color: "#666",
+    fontWeight: "600",
+    fontSize: 16,
+  },
+  // Enhanced Password Requirements Styles
+  passwordRequirements: {
+    marginTop: 8,
+    padding: 12,
+    backgroundColor: "rgba(255,255,255,0.1)",
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.2)",
+  },
+  passwordRequirementsTitle: {
+    fontSize: 12,
+    color: "#ffffff",
+    fontWeight: "600",
+    marginBottom: 6,
+  },
+  requirementsList: {
+    gap: 4,
+  },
+  requirementItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  requirementText: {
+    fontSize: 12,
+    fontWeight: "500",
   },
 })

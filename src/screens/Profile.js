@@ -1,16 +1,21 @@
-import { useState, useCallback } from "react"
-import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, ScrollView, Image, Dimensions } from "react-native"
-import { Ionicons } from "@expo/vector-icons"
-import { SafeAreaProvider } from "react-native-safe-area-context"
-import { useFocusEffect } from '@react-navigation/native'
-import Navbar from "../navigations/navbar"
+import { useState, useCallback, useEffect } from "react";
+import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, ScrollView, Image, Dimensions, ActivityIndicator } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { SafeAreaProvider } from "react-native-safe-area-context";
+import { useFocusEffect } from '@react-navigation/native';
+import Navbar from "../navigations/navbar";
+import { db, auth } from '../config/firebaseConfig';
+import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestore';
 
-const { width } = Dimensions.get("window")
+const { width } = Dimensions.get("window");
 
 export default function Profile({ navigation }) {
-  const [selectedService, setSelectedService] = useState(null)
+  const [selectedService, setSelectedService] = useState(null);
+  const [upcomingAppointments, setUpcomingAppointments] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [currentUser, setCurrentUser] = useState(null);
 
-  // Reset header configuration when screen is focused
+  // Set header configuration on screen focus
   useFocusEffect(
     useCallback(() => {
       navigation.setOptions({
@@ -19,53 +24,161 @@ export default function Profile({ navigation }) {
     }, [navigation])
   );
 
-  const handleBookNow = () => {
-    if (navigation) {
-      navigation.navigate("AppointmentScreen")
-    } else {
-      console.log("Navigate to AppointmentScreen")
+  // Auth state listener to get the current user
+  useEffect(() => {
+    const unsubscribeAuth = auth.onAuthStateChanged(user => {
+      setCurrentUser(user);
+    });
+    return () => unsubscribeAuth();
+  }, []);
+
+  // Fetch upcoming appointments from Firestore
+  useEffect(() => {
+    if (!currentUser) {
+      setIsLoading(false);
+      return;
     }
-  }
+
+    setIsLoading(true);
+
+    const appointmentsRef = collection(db, 'appointments');
+    // The updated query to sort by most recent booking (createdAt descending)
+    const q = query(
+      appointmentsRef,
+      where('userId', '==', currentUser.uid),
+      where('status', '==', 'confirmed'),
+      orderBy('createdAt', 'desc') // Change 'date' to 'createdAt' and 'asc' to 'desc'
+    );
+
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+      const appointments = [];
+      const now = new Date(); // Get the current time for filtering
+
+      querySnapshot.forEach((doc) => {
+        const data = doc.data();
+        // Check if data.date exists and is a valid format
+        if (data.date) {
+          const appointmentDate = new Date(data.date);
+         
+          // Filter out past appointments (still a good practice)
+          if (appointmentDate >= now) {
+            appointments.push({
+              id: doc.id,
+              ...data,
+              date: appointmentDate,
+            });
+          }
+        }
+      });
+      setUpcomingAppointments(appointments);
+      setIsLoading(false);
+    }, (error) => {
+      console.error("Error fetching appointments:", error);
+      setIsLoading(false);
+    });
+
+    // Unsubscribe from the listener when the component unmounts
+    return () => unsubscribe();
+  }, [currentUser]);
+
+  // Helper function to calculate end time
+  const getEndTime = (startTime) => {
+    if (!startTime) return 'N/A';
+    const [time, period] = startTime.split(' ');
+    const [hours, minutes] = time.split(':');
+    let hour = parseInt(hours);
+
+    if (period === 'PM' && hour !== 12) hour += 12;
+    if (period === 'AM' && hour === 12) hour = 0;
+
+    hour += 1;
+    const endMinutes = minutes.padStart(2, '0');
+    if (hour === 0) return `12:${endMinutes} AM`;
+    if (hour === 12) return `12:${endMinutes} PM`;
+    if (hour > 12) return `${hour - 12}:${endMinutes} PM`;
+    return `${hour}:${endMinutes} AM`;
+  };
+
+  const handleBookNow = () => {
+    navigation.navigate("AppointmentScreen");
+  };
 
   const handleServicePress = (serviceId) => {
-    setSelectedService(serviceId)
-    console.log("Service selected:", serviceId)
-  }
-
-  const handleAppointmentPress = () => {
-    if (navigation) {
-      navigation.navigate("AppointmentDetails")
-    } else {
-      console.log("Navigate to Appointment Details")
-    }
-  }
+    setSelectedService(serviceId);
+  };
 
   const handleSeeAllPress = () => {
-    if (navigation) {
-      navigation.navigate("ServicesScreen")
-    } else {
-      console.log("Navigate to Services Screen")
-    }
-  }
+    navigation.navigate("ServicesScreen");
+  };
 
-  // Add notification handler
   const handleNotificationPress = () => {
-    if (navigation) {
-      navigation.navigate("NotificationScreen")
-    } else {
-      console.log("Navigate to Notification Screen")
-    }
-  }
+    navigation.navigate("NotificationScreen");
+  };
 
-  // Handle View Appointment button press
   const handleViewAppointment = () => {
-    console.log("View appointment pressed")
-    if (navigation) {
-      navigation.navigate("ViewAppointmentScreen")
-    } else {
-      console.log("Navigate to ViewAppointmentScreen")
+    navigation.navigate("ViewAppointmentScreen");
+  };
+
+  // Renders the upcoming appointment card
+  const renderUpcomingAppointment = () => {
+    if (isLoading) {
+      return <ActivityIndicator size="large" color="#4A90E2" style={styles.loadingIndicator} />;
     }
-  }
+
+    if (upcomingAppointments.length === 0) {
+      return (
+        <View style={styles.noAppointmentsContainer}>
+          <Text style={styles.noAppointmentsText}>You have no upcoming appointments.</Text>
+        </View>
+      );
+    }
+   
+    // Display only the first upcoming appointment (the most recent booking)
+    const appointment = upcomingAppointments[0];
+    const appointmentDate = appointment.date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+
+    return (
+      <View style={styles.appointmentCard}>
+        <View style={styles.appointmentContent}>
+          <View style={styles.appointmentHeader}>
+            <View style={styles.doctorInfo}>
+              <Text style={styles.doctorName}>{appointment.doctor}</Text>
+              <Text style={styles.specialtyText}>Dentist</Text>
+            </View>
+            <View style={styles.procedureInfo}>
+              <Text style={styles.procedureText}>Procedure</Text>
+              <View style={styles.servicesContainer}>
+                {appointment.services.map((service, index) => (
+                  <View key={index} style={styles.serviceTag}>
+                    <Text style={styles.serviceTagText}>{service}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          </View>
+          <View style={styles.appointmentDetails}>
+            <View style={styles.detailRow}>
+              <View style={styles.iconContainer}>
+                <Ionicons name="calendar-outline" size={18} color="#666" />
+              </View>
+              <Text style={styles.detailText}>{appointmentDate}</Text>
+            </View>
+            <View style={styles.detailRow}>
+              <View style={styles.iconContainer}>
+                <Ionicons name="time-outline" size={18} color="#666" />
+              </View>
+              <Text style={styles.detailText}>{appointment.time} - {getEndTime(appointment.time)}</Text>
+            </View>
+          </View>
+          <View style={styles.finishButtonContainer}>
+            <TouchableOpacity style={styles.viewButton} onPress={handleViewAppointment}>
+              <Text style={styles.viewButtonText}>View</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    );
+  };
 
   return (
     <SafeAreaProvider>
@@ -104,7 +217,7 @@ export default function Profile({ navigation }) {
               </View>
               <View style={styles.bookingSection}>
                 <View style={styles.bookingTextContainer}>
-                  <Text style={styles.bookingTitle}>Dental Care You Can Trust </Text>
+                  <Text style={styles.bookingTitle}>Dental Care You Can Trust</Text>
                   <Text style={styles.bookingSubtitle}>Instant services and visible results all in one visit.</Text>
                 </View>
                 <TouchableOpacity style={styles.bookButton} onPress={handleBookNow}>
@@ -139,7 +252,6 @@ export default function Profile({ navigation }) {
                   <Text style={styles.serviceText}>Teeth Whitening</Text>
                 </View>
               </TouchableOpacity>
-
               {/* Service 2 */}
               <TouchableOpacity
                 style={[styles.serviceCard, selectedService === "cleaning" && styles.serviceCardActive]}
@@ -154,7 +266,6 @@ export default function Profile({ navigation }) {
                   <Text style={styles.serviceText}>Root Canal Treatment</Text>
                 </View>
               </TouchableOpacity>
-
               {/* Service 3 */}
               <TouchableOpacity
                 style={[styles.serviceCard, selectedService === "orthodontics" && styles.serviceCardActive]}
@@ -169,7 +280,6 @@ export default function Profile({ navigation }) {
                   <Text style={styles.serviceText}>Orthodontics</Text>
                 </View>
               </TouchableOpacity>
-
               {/* Service 4 */}
               <TouchableOpacity
                 style={[styles.serviceCard, selectedService === "cleaning2" && styles.serviceCardActive]}
@@ -187,57 +297,17 @@ export default function Profile({ navigation }) {
             </View>
           </View>
 
-          {/* Upcoming Appointment Section */}
+          {/* Upcoming Appointment Section - Now dynamic */}
           <View style={styles.appointmentSection}>
             <Text style={styles.sectionTitle}>Upcoming Appointment</Text>
-            <View style={styles.appointmentCard}>
-              <View style={styles.appointmentContent}>
-                <View style={styles.appointmentHeader}>
-                  <View style={styles.doctorInfo}>
-                    <Text style={styles.doctorName}>Dr. Jessica Fano</Text>
-                    <Text style={styles.specialtyText}>Dentist</Text>
-                  </View>
-                </View>
-
-                <View style={styles.appointmentDetails}>
-                  <View style={styles.detailRow}>
-                    <View style={styles.iconContainer}>
-                      <Ionicons name="calendar-outline" size={18} color="#666" />
-                    </View>
-                    <Text style={styles.detailText}>Monday, Dec 23</Text>
-                    <View style={styles.procedureInfo}>
-                      <Text style={styles.procedureText}>Procedure</Text>
-                    </View>
-                  </View>
-                  <View style={styles.detailRow}>
-                    <View style={styles.iconContainer}>
-                      <Ionicons name="time-outline" size={18} color="#666" />
-                    </View>
-                    <Text style={styles.detailText}>11:00 - 12:00 AM</Text>
-                    <View style={styles.procedureInfo}>
-                      <Text style={styles.procedureDetailText}>• Teeth Whitening</Text>
-                    </View>
-                  </View>
-                </View>
-
-                {/* View Button */}
-                <View style={styles.finishButtonContainer}>
-                  <TouchableOpacity
-                    style={styles.viewButton}
-                    onPress={handleViewAppointment}
-                  >
-                    <Text style={styles.viewButtonText}>View</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            </View>
+            {renderUpcomingAppointment()}
           </View>
         </ScrollView>
 
         <Navbar navigation={navigation} activeTab="Home" />
       </SafeAreaView>
     </SafeAreaProvider>
-  )
+  );
 }
 
 const styles = StyleSheet.create({
@@ -491,11 +561,33 @@ const styles = StyleSheet.create({
   },
   procedureInfo: {
     alignItems: "flex-end",
+    flex: 1,
   },
   procedureText: {
     fontSize: 14,
     color: "#666",
     fontWeight: "500",
+    marginBottom: 8,
+  },
+  servicesContainer: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "flex-end",
+    alignItems: "center",
+    maxWidth: 180,
+    gap: 4,
+  },
+  serviceTag: {
+    backgroundColor: "#E8F4FD",
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    marginBottom: 2,
+  },
+  serviceTagText: {
+    fontSize: 10,
+    color: "#4A90E2",
+    fontWeight: "600",
   },
   appointmentDetails: {
     gap: 8,
@@ -513,11 +605,6 @@ const styles = StyleSheet.create({
     color: "#666",
     marginLeft: 5,
   },
-  procedureDetailText: {
-    fontSize: 14,
-    color: "#666",
-  },
-  // New styles for the View button
   finishButtonContainer: {
     alignItems: "flex-end",
     marginTop: 15,
@@ -541,4 +628,27 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     fontSize: 14,
   },
-})
+  loadingIndicator: {
+    marginTop: 20,
+  },
+  noAppointmentsContainer: {
+    backgroundColor: "#fff",
+    borderRadius: 15,
+    padding: 20,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.0,
+    shadowRadius: 4,
+    elevation: 3,
+    marginTop: 15,
+    alignItems: 'center',
+  },
+  noAppointmentsText: {
+    fontSize: 16,
+    color: "#666",
+    textAlign: "center",
+  },
+});

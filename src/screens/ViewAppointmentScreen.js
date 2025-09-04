@@ -1,11 +1,87 @@
-import React, { useState } from "react";
-import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, ScrollView, Image } from "react-native";
+import React, { useState, useEffect } from "react";
+import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, ScrollView, Image, ActivityIndicator, Alert } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaProvider } from "react-native-safe-area-context";
-import Navbar from "../navigations/navbar"; // Assuming you have a Navbar component
+import Navbar from "../navigations/navbar";
+
+// Firebase imports
+import { db, auth } from '../config/firebaseConfig';
+import { collection, query, where, orderBy, onSnapshot, doc, updateDoc } from 'firebase/firestore';
 
 export default function ViewAppointmentScreen({ navigation }) {
-  const [activeTab, setActiveTab] = useState("future"); // 'future' or 'past'
+  const [activeTab, setActiveTab] = useState("future");
+  const [futureAppointments, setFutureAppointments] = useState([]);
+  const [pastAppointments, setPastAppointments] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [currentUser, setCurrentUser] = useState(null);
+
+  // Auth state listener
+  useEffect(() => {
+    const unsubscribeAuth = auth.onAuthStateChanged(user => {
+      setCurrentUser(user);
+    });
+    return () => unsubscribeAuth();
+  }, []);
+
+  // Fetch appointments from Firebase
+  useEffect(() => {
+    if (!currentUser) {
+      setIsLoading(false);
+      return;
+    }
+
+    setIsLoading(true);
+
+    const appointmentsRef = collection(db, 'appointments');
+    const q = query(
+      appointmentsRef,
+      where('userId', '==', currentUser.uid),
+      orderBy('createdAt', 'desc') // Sorts by booking creation date, newest first
+    );
+
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+      const future = [];
+      const past = [];
+      const now = new Date();
+
+      querySnapshot.forEach((doc) => {
+        const data = doc.data();
+        if (data.date) {
+          const appointmentDate = new Date(data.date);
+          const appointmentData = {
+            id: doc.id,
+            ...data,
+            date: appointmentDate,
+          };
+
+          // Updated Logic: Categorize appointments based on status
+          // An appointment is 'past' only if its status is 'finished'.
+          // All other confirmed appointments are considered 'future'.
+          if (data.status === 'finished') {
+            past.push(appointmentData);
+          } else if (data.status === 'confirmed') {
+            future.push(appointmentData);
+          }
+        }
+      });
+
+      // Sort future appointments by date (ascending - oldest first)
+      future.sort((a, b) => a.date - b.date);
+
+      // Sort past appointments by finishedAt date (descending - most recent first)
+      past.sort((a, b) => new Date(b.finishedAt) - new Date(a.finishedAt));
+
+      setFutureAppointments(future);
+      setPastAppointments(past);
+      setIsLoading(false);
+    }, (error) => {
+      console.error("Error fetching appointments:", error);
+      setIsLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [currentUser]);
+
 
   const handleBackPress = () => {
     if (navigation) {
@@ -15,80 +91,164 @@ export default function ViewAppointmentScreen({ navigation }) {
     }
   };
 
-  const handleFinishAppointment = () => {
-    console.log("Finish appointment pressed");
-    if (navigation) {
-      // You can add logic here to mark the appointment as 'finished' before navigating
-      navigation.navigate("FeedbackScreen");
+  // New function to handle finishing the appointment without navigation
+  const handleFinishOnly = async (appointmentId) => {
+    try {
+      const appointmentRef = doc(db, 'appointments', appointmentId);
+      await updateDoc(appointmentRef, {
+        status: 'finished',
+        finishedAt: new Date().toISOString()
+      });
+      console.log("Appointment marked as finished without feedback.");
+    } catch (error) {
+      console.error("Error finishing appointment:", error);
     }
   };
 
-  // Mock data for appointments
-  const futureAppointments = [
-    {
-      id: "1",
-      doctorName: "Dr. Jessica Fano",
-      specialty: "Dentist",
-      date: "Monday, Dec 23",
-      time: "11:00 - 12:00 AM",
-      procedure: "Teeth Whitening",
-    },
- 
-  ];
+  // New function to handle finishing the appointment and navigating
+  const handleFinishAndNavigate = async (appointmentId) => {
+    try {
+      const appointmentRef = doc(db, 'appointments', appointmentId);
+      await updateDoc(appointmentRef, {
+        status: 'finished',
+        finishedAt: new Date().toISOString()
+      });
+      console.log("Appointment marked as finished, navigating to feedback screen.");
+      if (navigation) {
+        navigation.navigate("FeedbackScreen", { appointmentId });
+      }
+    } catch (error) {
+      console.error("Error finishing appointment:", error);
+    }
+  };
 
-  const pastAppointments = [
-    {
-      id: "6",
-      doctorName: "Dr. Alex Garcia",
-      specialty: "Orthodontist",
-      date: "Wednesday, Nov 15  ",
-      time: "09:30 - 10:30 AM",
-      procedure: "Braces Adjustment",
-    },
-   
-  ];
+  // New function to show the confirmation pop-up
+  const confirmFinish = (appointmentId) => {
+    Alert.alert(
+      "Confirm Finish",
+      "Do you want to provide feedback?",
+      [
+        {
+          text: "No",
+          onPress: () => handleFinishOnly(appointmentId),
+          style: "cancel",
+        },
+        {
+          text: "Yes",
+          onPress: () => handleFinishAndNavigate(appointmentId),
+        },
+      ],
+      { cancelable: false }
+    );
+  };
+
+  // Helper function to format date
+  const formatDate = (date) => {
+    return date.toLocaleDateString('en-US', {
+      weekday: 'long',
+      month: 'short',
+      day: 'numeric'
+    });
+  };
+
+  // Helper function to calculate end time
+  const getEndTime = (startTime) => {
+    if (!startTime) return 'N/A';
+    const [time, period] = startTime.split(' ');
+    const [hours, minutes] = time.split(':');
+    let hour = parseInt(hours);
+
+    if (period === 'PM' && hour !== 12) hour += 12;
+    if (period === 'AM' && hour === 12) hour = 0;
+
+    hour += 1;
+    const endMinutes = minutes.padStart(2, '0');
+    if (hour === 0) return `12:${endMinutes} AM`;
+    if (hour === 12) return `12:${endMinutes} PM`;
+    if (hour > 12) return `${hour - 12}:${endMinutes} PM`;
+    return `${hour}:${endMinutes} AM`;
+  };
 
   const renderAppointments = (appointments) => {
-    if (appointments.length === 0) {
-      return <Text style={styles.noAppointmentsText}>No appointments to show.</Text>;
+    if (isLoading) {
+      return <ActivityIndicator size="large" color="#1290D5" style={styles.loadingIndicator} />;
     }
 
-    return appointments.map((appointment) => (
-      <View key={appointment.id} style={styles.appointmentCard}>
-        <View style={styles.appointmentContent}>
-          <Text style={styles.doctorName}>{appointment.doctorName}</Text>
-          <Text style={styles.specialtyText}>{appointment.specialty}</Text>
-          <View style={styles.appointmentDetails}>
-            <View style={styles.detailRow}>
-              <View style={styles.iconContainer}>
-                <Ionicons name="calendar-outline" size={18} color="#666" />
-              </View>
-              <Text style={styles.detailText}>{appointment.date}</Text>
-              <Text style={[styles.detailText, { marginLeft: 'auto' }]}>Procedure/Service</Text>
-            </View>
-            <View style={styles.detailRow}>
-              <View style={styles.iconContainer}>
-                <Ionicons name="time-outline" size={18} color="#666" />
-              </View>
-              <Text style={styles.detailText}>{appointment.time}</Text>
-              <Text style={[styles.detailText, { marginLeft: 'auto', fontWeight: 'bold' }]}>
-                {appointment.procedure}
-              </Text>
-            </View>
-          </View>
-          {activeTab === 'future' && (
-            <View style={styles.buttonContainer}>
-              <TouchableOpacity
-                style={styles.finishButton}
-                onPress={handleFinishAppointment}
-              >
-                <Text style={styles.finishButtonText}>Finish</Text>
-              </TouchableOpacity>
-            </View>
-          )}
+    if (appointments.length === 0) {
+      return (
+        <View style={styles.noAppointmentsContainer}>
+          <Text style={styles.noAppointmentsText}>
+            {activeTab === 'future' ? 'No upcoming appointments.' : 'No past appointments.'}
+          </Text>
         </View>
-      </View>
-    ));
+      );
+    }
+
+    return appointments.map((appointment) => {
+      // Format services list
+      const servicesList = appointment.services ? appointment.services.join(', ') : 'General Consultation';
+
+      return (
+        <View key={appointment.id} style={styles.appointmentCard}>
+          <View style={styles.appointmentContent}>
+            <View style={styles.appointmentHeader}>
+              <View style={styles.doctorInfo}>
+                <Text style={styles.doctorName}>{appointment.doctor || 'Dr. Not Assigned'}</Text>
+                <Text style={styles.specialtyText}>Dentist</Text>
+              </View>
+              <View style={styles.procedureInfo}>
+                <Text style={styles.procedureText}>Procedure/Service</Text>
+                <View style={styles.servicesContainer}>
+                  {appointment.services && appointment.services.map((service, index) => (
+                    <View key={index} style={styles.serviceTag}>
+                      <Text style={styles.serviceTagText}>{service}</Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
+            </View>
+
+            <View style={styles.appointmentDetails}>
+              <View style={styles.detailRow}>
+                <View style={styles.iconContainer}>
+                  <Ionicons name="calendar-outline" size={18} color="#666" />
+                </View>
+                <Text style={styles.detailText}>{formatDate(appointment.date)}</Text>
+              </View>
+              <View style={styles.detailRow}>
+                <View style={styles.iconContainer}>
+                  <Ionicons name="time-outline" size={18} color="#666" />
+                </View>
+                <Text style={styles.detailText}>
+                  {appointment.time} - {getEndTime(appointment.time)}
+                </Text>
+              </View>
+            </View>
+
+            {activeTab === 'future' && (
+              <View style={styles.buttonContainer}>
+                <TouchableOpacity
+                  style={styles.finishButton}
+                  onPress={() => confirmFinish(appointment.id)}
+                >
+                  <Text style={styles.finishButtonText}>Finish</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {activeTab === 'past' && (
+              <View style={styles.statusContainer}>
+                <View style={styles.statusBadge}>
+                  <Text style={styles.statusText}>
+                    {appointment.status === 'finished' ? 'Completed' : 'Finished'}
+                  </Text>
+                </View>
+              </View>
+            )}
+          </View>
+        </View>
+      );
+    });
   };
 
   return (
@@ -140,7 +300,11 @@ export default function ViewAppointmentScreen({ navigation }) {
             </TouchableOpacity>
           </View>
 
-          <ScrollView style={styles.scrollView}>
+          <ScrollView
+            style={styles.scrollView}
+            contentContainerStyle={styles.scrollViewContent}
+            showsVerticalScrollIndicator={false}
+          >
             {activeTab === "future"
               ? renderAppointments(futureAppointments)
               : renderAppointments(pastAppointments)}
@@ -162,7 +326,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     paddingHorizontal: 20,
-    paddingTop: 40,
+    paddingTop: 20,
     paddingBottom: 20,
   },
   backButton: {
@@ -210,6 +374,9 @@ const styles = StyleSheet.create({
   scrollView: {
     paddingHorizontal: 15,
   },
+  scrollViewContent: {
+    paddingBottom: 120, // This is the key change
+  },
   appointmentCard: {
     backgroundColor: "#fff",
     borderRadius: 15,
@@ -224,6 +391,15 @@ const styles = StyleSheet.create({
   appointmentContent: {
     flex: 1,
   },
+  appointmentHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    marginBottom: 15,
+  },
+  doctorInfo: {
+    flex: 1,
+  },
   doctorName: {
     fontSize: 18,
     fontWeight: "600",
@@ -235,8 +411,37 @@ const styles = StyleSheet.create({
     color: "#666",
     fontWeight: "400",
   },
+  procedureInfo: {
+    alignItems: "flex-end",
+    flex: 1,
+  },
+  procedureText: {
+    fontSize: 14,
+    color: "#666",
+    fontWeight: "500",
+    marginBottom: 8,
+  },
+  servicesContainer: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "flex-end",
+    alignItems: "center",
+    maxWidth: 180,
+    gap: 4,
+  },
+  serviceTag: {
+    backgroundColor: "#E8F4FD",
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    marginBottom: 2,
+  },
+  serviceTagText: {
+    fontSize: 10,
+    color: "#1290D5",
+    fontWeight: "600",
+  },
   appointmentDetails: {
-    marginTop: 15,
     gap: 8,
   },
   detailRow: {
@@ -272,9 +477,31 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     fontSize: 14,
   },
+  statusContainer: {
+    alignItems: "flex-end",
+    marginTop: 15,
+  },
+  statusBadge: {
+    backgroundColor: "#4CAF50",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 15,
+  },
+  statusText: {
+    color: "#fff",
+    fontWeight: "600",
+    fontSize: 12,
+  },
+  loadingIndicator: {
+    marginTop: 50,
+  },
+  noAppointmentsContainer: {
+    alignItems: 'center',
+    marginTop: 50,
+    paddingHorizontal: 20,
+  },
   noAppointmentsText: {
     textAlign: "center",
-    marginTop: 20,
     fontSize: 16,
     color: "#666",
   },

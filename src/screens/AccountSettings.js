@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useRef } from "react"
+import React, { useState, useContext } from "react"
 import {
   View,
   Text,
@@ -8,9 +8,6 @@ import {
   StyleSheet,
   TouchableOpacity,
   SafeAreaView,
-  KeyboardAvoidingView,
-  Platform,
-  Animated,
   ScrollView,
   Image,
   Modal,
@@ -18,6 +15,9 @@ import {
 import { Ionicons } from "@expo/vector-icons"
 import { SafeAreaProvider } from "react-native-safe-area-context"
 import * as ImagePicker from "expo-image-picker"
+
+// Make sure the path to your UserContext.js file is correct
+import { UserContext } from '../context/UserContext'
 
 // Custom Success Modal Component
 const SuccessModal = ({ isVisible, onClose }) => {
@@ -50,13 +50,13 @@ const SuccessModal = ({ isVisible, onClose }) => {
 }
 
 export default function AccountSettings({ navigation }) {
-  const [profileImage, setProfileImage] = useState(
-    require("../../assets/profile/photo.png")
-  )
-  const [name, setName] = useState("Clara Lauren")
-  const [email, setEmail] = useState("claralaurent@gmail.com")
-  const [phoneNumber, setPhoneNumber] = useState("09123456789")
-  const [isEditing, setIsEditing] = useState(false)
+  // Use the useContext hook to get the shared state and update function
+  const { userProfile, setUserProfile } = useContext(UserContext)
+  
+  // Initialize local state with values from the global context
+  const [name, setName] = useState(userProfile.name)
+  const [email, setEmail] = useState(userProfile.email)
+  const [phoneNumber, setPhoneNumber] = useState(userProfile.phoneNumber)
   const [isSuccess, setIsSuccess] = useState(false)
 
   const handleImagePicker = async () => {
@@ -68,19 +68,24 @@ export default function AccountSettings({ navigation }) {
     })
 
     if (!result.canceled) {
-      setProfileImage({ uri: result.assets[0].uri })
+      const newImageUri = { uri: result.assets[0].uri }
+      // Update the global state with the new image URI
+      setUserProfile({ ...userProfile, profileImage: newImageUri })
     }
   }
 
   const handleSaveChanges = () => {
-    // Implement your logic to save the updated data to your backend or state management
-    console.log("Saving changes:", { name, email, phoneNumber })
+    // Update the global state with the new name, email, and phone number
+    setUserProfile({
+      ...userProfile,
+      name,
+      email,
+      phoneNumber,
+    })
     setIsSuccess(true)
-    setIsEditing(false)
   }
 
   const handleChangePasswordPress = () => {
-    // Navigate to the ChangePassword screen
     navigation.navigate("ChangePassword")
   }
 
@@ -108,7 +113,8 @@ export default function AccountSettings({ navigation }) {
           <View style={styles.profileSection}>
             <TouchableOpacity onPress={handleImagePicker}>
               <View style={styles.profileImageContainer}>
-                <Image source={profileImage} style={styles.profileImage} />
+                {/* Use the profileImage from the global state */}
+                <Image source={userProfile.profileImage} style={styles.profileImage} />
                 <View style={styles.editIconContainer}>
                   <Ionicons name="camera" size={20} color="#fff" />
                 </View>
@@ -310,7 +316,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "600",
   },
-});
+})
 
 // Styles for the new Modal
 const modalStyles = StyleSheet.create({
