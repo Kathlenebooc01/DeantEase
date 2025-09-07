@@ -8,56 +8,146 @@ import {
   SafeAreaView,
   StatusBar,
   Modal,
-  Alert
+  Alert,
+  Image,
+  ActivityIndicator
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import LottieView from 'lottie-react-native';
 import Navbar from '../navigations/navbar';
 // Import Firebase functions
-import { db, auth } from '../config/firebaseConfig'; // Correct path to your config folder
+import { db, auth } from '../config/firebaseConfig';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 
 const AppointmentScreen = ({ navigation }) => {
-  // Use today's date for a live calendar
   const today = new Date();
   const [currentDate, setCurrentDate] = useState(new Date());
 
-  // State for selected appointment details
   const [selectedDate, setSelectedDate] = useState(null);
   const [selectedTime, setSelectedTime] = useState(null);
   const [selectedServices, setSelectedServices] = useState([]);
 
-  // State for expanded views
   const [isCalendarExpanded, setIsCalendarExpanded] = useState(false);
   const [isTimeExpanded, setIsTimeExpanded] = useState(false);
 
-  // State for confirmation modal and loading
   const [showConfirmationModal, setShowConfirmationModal] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [showPreConfirmationModal, setShowPreConfirmationModal] = useState(false);
 
-  // Available time slots (12-hour format)
   const timeSlots = [
     '9:00 AM', '9:30 AM', '10:00 AM', '10:30 AM', '11:00 AM', '11:30 AM', '12:00 PM',
     '1:00 PM', '1:30 PM', '2:00 PM', '2:30 PM', '3:00 PM', '3:30 PM', '4:00 PM'
   ];
 
-  // Available services
   const services = [
-    'Dental Consultation',
-    'Oral Prophylaxis (Cleaning)',
-    'Dental Filling (Pasta)',
-    'Flouride Varnish',
-    'Pit and Fissure Sealant',
-    'Root Canal Treatment',
-    'Tooth Extraction /Odontectomy',
-    'Orthodontic Braces',
-    'Teeth Whitening',
-    'Gingivectomy',
-    'Frenectomy',
-    'Dentures',
-    'Dental Crown'
+    {
+      id: "consultation",
+      name: "Dental Consultation",
+      description: "Full check-up of teeth, gums, and mouth with advice and treatment options.",
+      image: require("../../assets/ServicesScreen/Consulation.png"),
+      price: "₱500",
+      icon: 'medkit-outline'
+    },
+    {
+      id: "prophylaxis",
+      name: "Oral Prophylaxis (Cleaning)",
+      description: "Professional cleaning to remove buildup, keep your smile fresh, and prevent gum disease.",
+      image: require("../../assets/ServicesScreen/Oral.png"),
+      price: "₱800 - ₱2,500",
+      icon: 'sparkles-outline'
+    },
+    {
+      id: "dental_filling",
+      name: "Dental Filling (Pasta)",
+      description: "Tooth-colored fillings matched to your natural teeth for a seamless smile.",
+      image: require("../../assets/ServicesScreen/image 41.png"),
+      price: "₱1,000 - ₱2,500",
+      icon: 'cut-outline'
+    },
+    {
+      id: "fluoride",
+      name: "Fluoride Varnish",
+      description: "Fluoride varnish coats teeth to strengthen enamel and protect against cavities.",
+      image: require("../../assets/ServicesScreen/image 37.png"),
+      price: "₱500",
+      icon: 'shield-outline'
+    },
+    {
+      id: "pit_fissure",
+      name: "Pit and Fissure Sealant",
+      description: "Protective coating applied to molars to seal grooves and prevent cavities.",
+      image: require("../../assets/ServicesScreen/image 35.png"),
+      price: "₱500",
+      icon: 'shield-outline'
+    },
+    {
+      id: "root_canal",
+      name: "Root Canal Treatment",
+      description: "Root Canal Treatment removes an infected tooth nerve and seals it to prevent reinfection.",
+      image: require("../../assets/ServicesScreen/Root.png"),
+      price: "₱500",
+      icon: 'pulse-outline'
+    },
+    {
+      id: "tooth_extraction",
+      name: "Tooth Extraction (Odontectomy)",
+      description: "If you have a tooth that is damaged by trauma or decay, it may require extraction.",
+      image: require("../../assets/ServicesScreen/image 32.png"),
+      price: "₱500",
+      icon: 'flash-outline'
+    },
+    {
+      id: "orthodontics",
+      name: "Orthodontics Braces",
+      description: "Braces straighten misaligned teeth and correct bite issues, improving appearance and oral health.",
+      image: require("../../assets/profile/image 54.png"),
+      price: "₱500",
+      icon: 'grid-outline'
+    },
+    {
+      id: "teeth_whitening",
+      name: "Teeth Whitening",
+      description: "A cosmetic treatment that lightens teeth and removes stains, giving you a whiter and more confident smile.",
+      image: require("../../assets/profile/image 45.png"),
+      price: "₱500",
+      icon: 'color-palette-outline'
+    },
+    {
+      id: "gingivectomy",
+      name: "Gingivectomy",
+      description: "A minor surgery that removes excess or diseased gum tissue, improving gum health and smile appearance.",
+      image: require("../../assets/ServicesScreen/image 43.png"),
+      price: "₱500",
+      icon: 'bandage-outline'
+    },
+    {
+      id: "frenectomy",
+      name: "Frenectomy",
+      description: "A minor surgery to correct tongue-tie or lip-tie, improving speech, eating, and orthodontic care.",
+      image: require("../../assets/ServicesScreen/image 42.png"),
+      price: "₱500",
+      icon: 'medical-outline'
+    },
+    {
+      id: "denture",
+      name: "Denture",
+      description: "Custom-made dentures replace missing teeth, restoring your smile and chewing function.",
+      image: require("../../assets/ServicesScreen/image 38.png"),
+      price: "₱500",
+      details: ["• Partial/Metal", "• Complete", "• Soft Liner", "• Complete denture and etc."],
+      icon: 'happy-outline'
+    },
+    {
+      id: "dental_crown",
+      name: "Dental Crown",
+      description: "A crown is a cap that restores a damaged tooth's strength, function, and appearance.",
+      image: require("../../assets/ServicesScreen/image 44.png"),
+      price: "₱500",
+      details: ["• Jacket Crown", "• PFM Crown", "• All Ceramic", "• Zirconia Crown", "• Second Crown"],
+      icon: 'ellipse-outline'
+    }
   ];
 
-  // Function to save appointment to Firebase
   const saveAppointmentToFirebase = async (appointmentData) => {
     try {
       const appointmentsCollection = collection(db, 'appointments');
@@ -70,14 +160,12 @@ const AppointmentScreen = ({ navigation }) => {
     }
   };
 
-  // Function to check if a given date is in the past (ignoring time)
   const isPastDate = (date) => {
     const todayDateOnly = new Date(today.getFullYear(), today.getMonth(), today.getDate());
     const dateToCheck = new Date(date.getFullYear(), date.getMonth(), date.getDate());
     return dateToCheck < todayDateOnly;
   };
 
-  // Check if a time slot is in the past for the selected date
   const isPastTimeSlot = (timeSlot) => {
     if (selectedDate?.toDateString() !== today.toDateString()) {
       return false;
@@ -106,17 +194,14 @@ const AppointmentScreen = ({ navigation }) => {
     return timeSlotDate < today;
   };
 
-  // Function to get the number of days in a month
   const getDaysInMonth = (year, month) => {
     return new Date(year, month + 1, 0).getDate();
   };
 
-  // Function to get the first day of the month
   const getFirstDayOfMonth = (year, month) => {
     return new Date(year, month, 1).getDay();
   };
 
-  // Generate calendar days
   const generateCalendarDays = () => {
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth();
@@ -136,7 +221,6 @@ const AppointmentScreen = ({ navigation }) => {
     return days;
   };
 
-  // Generate current week days
   const generateCurrentWeekDays = () => {
     const startOfWeek = new Date(selectedDate || today);
     const day = startOfWeek.getDay();
@@ -152,7 +236,6 @@ const AppointmentScreen = ({ navigation }) => {
     return weekDays;
   };
 
-  // Handle month navigation
   const goToPreviousMonth = () => {
     setCurrentDate(prevDate => {
       const newDate = new Date(prevDate);
@@ -169,7 +252,6 @@ const AppointmentScreen = ({ navigation }) => {
     });
   };
 
-  // Handle selections
   const handleDateClick = (date) => {
     if (!isPastDate(date)) {
       setSelectedDate(date);
@@ -182,30 +264,17 @@ const AppointmentScreen = ({ navigation }) => {
 
   const handleServiceClick = (service) => {
     setSelectedServices(prev => {
-      if (prev.includes(service)) {
-        return prev.filter(s => s !== service);
+      if (prev.includes(service.name)) {
+        return prev.filter(s => s !== service.name);
       } else {
-        return [...prev, service];
+        return [...prev, service.name];
       }
     });
   };
 
-  // Handle confirmation with Firebase integration
-  const handleConfirm = async () => {
-    // Check if all required fields are selected
-    if (!selectedDate || !selectedTime || selectedServices.length === 0) {
-      Alert.alert(
-        'Incomplete Information',
-        'Please select a date, time, and at least one service to confirm your appointment.',
-        [{ text: 'OK' }]
-      );
-      return;
-    }
-
+  const handleFinalBooking = async () => {
     setIsLoading(true);
-
     try {
-      // Get current user
       const currentUser = auth.currentUser;
       if (!currentUser) {
         Alert.alert(
@@ -217,26 +286,24 @@ const AppointmentScreen = ({ navigation }) => {
         return;
       }
 
-      // Create appointment data
       const appointmentData = {
         userId: currentUser.uid,
+        userName: 'Claura Lauren',
         userEmail: currentUser.email,
         date: selectedDate.toISOString(),
         time: selectedTime,
         services: selectedServices,
-        doctor: 'Dr. Jessica Fano',
+        doctor: 'Dr. Jessicca Fano',
         status: 'confirmed',
         createdAt: serverTimestamp(),
-        // Add formatted date for easier querying
         appointmentDate: selectedDate.toLocaleDateString('en-US'),
-        // Add end time
         endTime: getEndTime(selectedTime)
       };
 
-      // Save to Firebase
       const result = await saveAppointmentToFirebase(appointmentData);
-      
+
       if (result.success) {
+        setShowPreConfirmationModal(false);
         setShowConfirmationModal(true);
       } else {
         Alert.alert(
@@ -246,7 +313,7 @@ const AppointmentScreen = ({ navigation }) => {
         );
       }
     } catch (error) {
-      console.error('Error in handleConfirm:', error);
+      console.error('Error in handleFinalBooking:', error);
       Alert.alert(
         'Booking Failed',
         'There was an error booking your appointment. Please try again.',
@@ -257,17 +324,26 @@ const AppointmentScreen = ({ navigation }) => {
     }
   };
 
-  // Handle return to home
+  const handleConfirm = () => {
+    if (!selectedDate || !selectedTime || selectedServices.length === 0) {
+      Alert.alert(
+        'Incomplete Information',
+        'Please select a date, time, and at least one service to confirm your appointment.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+    setShowPreConfirmationModal(true);
+  };
+
   const handleReturnToHome = () => {
     setShowConfirmationModal(false);
-    // Reset form
     setSelectedDate(null);
     setSelectedTime(null);
     setSelectedServices([]);
     navigation.navigate('Profile');
   };
 
-  // Format date for display
   const formatDateForModal = (date) => {
     if (!date) return 'N/A';
     const options = {
@@ -278,7 +354,6 @@ const AppointmentScreen = ({ navigation }) => {
     return date.toLocaleDateString('en-US', options);
   };
 
-  // Get end time (assuming 1-hour appointments)
   const getEndTime = (startTime) => {
     if (!startTime) return 'N/A';
     const [time, period] = startTime.split(' ');
@@ -288,7 +363,7 @@ const AppointmentScreen = ({ navigation }) => {
     if (period === 'PM' && hour !== 12) hour += 12;
     if (period === 'AM' && hour === 12) hour = 0;
 
-    hour += 1; // Add 1 hour
+    hour += 1;
 
     const endMinutes = minutes.padStart(2, '0');
     if (hour === 0) return `12:${endMinutes} AM`;
@@ -298,8 +373,7 @@ const AppointmentScreen = ({ navigation }) => {
   };
 
   const daysOfWeek = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
- 
-  // Check if the confirm button should be enabled
+
   const isConfirmButtonEnabled = selectedDate && selectedTime && selectedServices.length > 0 && !isLoading;
 
   return (
@@ -512,18 +586,27 @@ const AppointmentScreen = ({ navigation }) => {
           <View style={styles.servicesGrid}>
             {services.map((service) => (
               <TouchableOpacity
-                key={service}
+                key={service.id}
                 onPress={() => handleServiceClick(service)}
                 style={[
                   styles.serviceButton,
-                  selectedServices.includes(service) && styles.selectedServiceButton
+                  selectedServices.includes(service.name) && styles.selectedServiceButton
                 ]}
               >
+
+                <Image
+                  source={service.image}
+                  style={[
+                    styles.serviceImage,
+                    service.id === 'prophylaxis' && styles.prophylaxisImage,
+                  ]}
+                  resizeMode="contain"
+                />
                 <Text style={[
                   styles.serviceButtonText,
-                  selectedServices.includes(service) && styles.selectedServiceButtonText
+                  selectedServices.includes(service.name) && styles.selectedServiceButtonText
                 ]}>
-                  {service}
+                  {service.name}
                 </Text>
               </TouchableOpacity>
             ))}
@@ -546,7 +629,8 @@ const AppointmentScreen = ({ navigation }) => {
         >
           {isLoading ? (
             <View style={styles.loadingContainer}>
-              <Text style={styles.confirmButtonText}>Booking...</Text>
+              <ActivityIndicator color="#FFFFFF" size="small" />
+              <Text style={styles.confirmButtonText}> Booking...</Text>
             </View>
           ) : (
             <Text style={styles.confirmButtonText}>Confirm</Text>
@@ -554,7 +638,59 @@ const AppointmentScreen = ({ navigation }) => {
         </TouchableOpacity>
       </View>
 
-      {/* Confirmation Modal */}
+      {/* Pre-Confirmation Modal */}
+      <Modal
+        visible={showPreConfirmationModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowPreConfirmationModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.preConfirmationModalContainer}>
+            <Text style={styles.preConfirmationTitle}>Confirm Your Booking</Text>
+            <View style={styles.preConfirmationDetails}>
+              <View style={styles.detailRow}>
+                <Ionicons name="person-outline" size={24} color="#6B7280" style={styles.detailIcon} />
+                <Text style={styles.detailText}>Claura Lauren</Text>
+              </View>
+              <View style={styles.detailRow}>
+                <Ionicons name="calendar-outline" size={24} color="#6B7280" style={styles.detailIcon} />
+                <Text style={styles.detailText}>
+                  {selectedDate ? selectedDate.toLocaleDateString('en-US', {
+                    month: 'long', day: 'numeric', year: 'numeric'
+                  }) : ''} - {selectedTime}
+                </Text>
+              </View>
+              <View style={styles.detailRow}>
+                <Ionicons name="tooth-outline" size={24} color="#6B7280" style={styles.detailIcon} />
+                <Text style={styles.detailText}>
+                  {selectedServices.join(', ')}
+                </Text>
+              </View>
+              <View style={styles.detailRow}>
+                <Ionicons name="person-outline" size={24} color="#6B7280" style={styles.detailIcon} />
+                <Text style={styles.detailText}>Dr. Jessicca Fano</Text>
+              </View>
+            </View>
+            <View style={styles.modalButtonsContainer}>
+              <TouchableOpacity
+                style={styles.cancelButton}
+                onPress={() => setShowPreConfirmationModal(false)}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.confirmFinalButton}
+                onPress={handleFinalBooking}
+              >
+                <Text style={styles.confirmFinalButtonText}>Confirm Booking</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Confirmation Modal with Lottie Animation */}
       <Modal
         visible={showConfirmationModal}
         transparent={true}
@@ -563,9 +699,14 @@ const AppointmentScreen = ({ navigation }) => {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContainer}>
-            {/* Success Icon */}
-            <View style={styles.successIcon}>
-              <Ionicons name="checkmark" size={32} color="#FFFFFF" />
+            {/* Lottie Animation */}
+            <View style={styles.lottieContainer}>
+              <LottieView
+                source={{ uri: "https://lottie.host/5932cdd8-b997-45e2-8fb4-f0de0a34f833/EHJYv8dMM7.lottie" }}
+                loop={false}
+                autoPlay
+                style={styles.lottieAnimation}
+              />
             </View>
 
             {/* Success Message */}
@@ -723,7 +864,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 12,
   },
-  // Week view styles
   weekView: {
     marginTop: 8,
   },
@@ -758,7 +898,6 @@ const styles = StyleSheet.create({
   selectedWeekDayNumber: {
     color: '#FFFFFF',
   },
-  // Time row preview styles
   timeRowView: {
     marginTop: 8,
   },
@@ -822,24 +961,42 @@ const styles = StyleSheet.create({
   servicesGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
+    justifyContent: 'space-between',
+    rowGap: 10,
   },
   serviceButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    backgroundColor: '#DBEAFE',
-    borderRadius: 8,
-    marginRight: 8,
-    marginBottom: 8,
+    width: '32%',
+    aspectRatio: 0,
+    padding: 12,
+    backgroundColor: '#EBF4FF',
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#D1E5F8',
   },
   selectedServiceButton: {
     backgroundColor: '#2563EB',
+    borderColor: '#1E40AF',
+  },
+  serviceImage: {
+    width: 40,
+    height: 40,
+    marginBottom: 4,
+
+  },
+  prophylaxisImage: {
+    width: 40,
+    height: 40,
+    marginBottom: -5,
+
   },
   serviceButtonText: {
-    fontSize: 12,
-    fontWeight: '500',
+    fontSize: 11,
+    fontWeight: '600',
     color: '#1E40AF',
-    textAlign: 'left',
+    textAlign: 'center',
+    marginTop: 8,
   },
   selectedServiceButtonText: {
     color: '#FFFFFF',
@@ -872,8 +1029,9 @@ const styles = StyleSheet.create({
   loadingContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
   },
-  // Modal styles
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
@@ -893,6 +1051,16 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 20,
     elevation: 10,
+  },
+  lottieContainer: {
+    width: 200,
+    height: 200,
+    marginBottom: -10,
+    marginTop: -20,
+  },
+  lottieAnimation: {
+    width: '100%',
+    height: '100%',
   },
   successIcon: {
     width: 64,
@@ -932,6 +1100,73 @@ const styles = StyleSheet.create({
   },
   homeLink: {
     color: '#2563EB',
+    fontWeight: '600',
+  },
+  preConfirmationModalContainer: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 24,
+    alignItems: 'center',
+    maxWidth: 400,
+    width: '100%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.1,
+    shadowRadius: 20,
+    elevation: 5,
+  },
+  preConfirmationTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#111827',
+    marginBottom: 24,
+  },
+  preConfirmationDetails: {
+    width: '100%',
+    marginBottom: 24,
+  },
+  detailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  detailIcon: {
+    marginRight: 12,
+  },
+  detailText: {
+    fontSize: 16,
+    color: '#374151',
+    flexShrink: 1,
+  },
+  modalButtonsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
+  },
+  cancelButton: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+    backgroundColor: '#9CA3AF',
+    marginRight: 8,
+  },
+  cancelButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  confirmFinalButton: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+    backgroundColor: '#16A34A',
+    marginLeft: 8,
+  },
+  confirmFinalButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
     fontWeight: '600',
   },
 });

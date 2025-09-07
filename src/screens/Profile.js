@@ -5,7 +5,8 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { useFocusEffect } from '@react-navigation/native';
 import Navbar from "../navigations/navbar";
 import { db, auth } from '../config/firebaseConfig';
-import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestore';
+import { collection, query, where, orderBy, onSnapshot, doc, getDoc } from 'firebase/firestore';
+import { uploadToCloudinary } from '../config/cloudinaryConfig';
 
 const { width } = Dimensions.get("window");
 
@@ -14,6 +15,12 @@ export default function Profile({ navigation }) {
   const [upcomingAppointments, setUpcomingAppointments] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState(null);
+  // Add new state for user profile data
+  const [userProfile, setUserProfile] = useState({
+    displayName: 'Clara Lauren', // Default name
+    photoURL: null, // Will hold the profile picture URL
+    isLoading: true
+  });
 
   // Set header configuration on screen focus
   useFocusEffect(
@@ -32,6 +39,95 @@ export default function Profile({ navigation }) {
     return () => unsubscribeAuth();
   }, []);
 
+  // Fetch user profile data from Firestore
+  useEffect(() => {
+    if (!currentUser) {
+      setUserProfile(prev => ({ ...prev, isLoading: false }));
+      return;
+    }
+
+    const fetchUserProfile = async () => {
+      try {
+        const userDocRef = doc(db, 'users', currentUser.uid);
+        const userDoc = await getDoc(userDocRef);
+        
+        if (userDoc.exists()) {
+          const userData = userDoc.data();
+          setUserProfile({
+            displayName: userData.displayName || userData.name || currentUser.displayName || 'User',
+            photoURL: userData.photoURL || userData.profilePicture || currentUser.photoURL,
+            isLoading: false
+          });
+        } else {
+          // If no document exists, use Auth data as fallback
+          setUserProfile({
+            displayName: currentUser.displayName || 'User',
+            photoURL: currentUser.photoURL,
+            isLoading: false
+          });
+        }
+      } catch (error) {
+        console.error("Error fetching user profile:", error);
+        setUserProfile({
+          displayName: currentUser.displayName || 'User',
+          photoURL: currentUser.photoURL,
+          isLoading: false
+        });
+      }
+    };
+
+    fetchUserProfile();
+  }, [currentUser]);
+
+  // Real-time listener for user profile changes
+  useEffect(() => {
+    if (!currentUser) return;
+
+    const userDocRef = doc(db, 'users', currentUser.uid);
+    const unsubscribeUser = onSnapshot(userDocRef, (doc) => {
+      if (doc.exists()) {
+        const userData = doc.data();
+        setUserProfile(prev => ({
+          ...prev,
+          displayName: userData.displayName || userData.name || currentUser.displayName || 'User',
+          photoURL: userData.photoURL || userData.profilePicture || currentUser.photoURL,
+          isLoading: false
+        }));
+      }
+    }, (error) => {
+      console.error("Error listening to user profile changes:", error);
+    });
+
+    return () => unsubscribeUser();
+  }, [currentUser]);
+
+  // Refresh profile data when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      if (currentUser) {
+        const refreshUserProfile = async () => {
+          try {
+            const userDocRef = doc(db, 'users', currentUser.uid);
+            const userDoc = await getDoc(userDocRef);
+            
+            if (userDoc.exists()) {
+              const userData = userDoc.data();
+              setUserProfile(prev => ({
+                ...prev,
+                displayName: userData.displayName || userData.name || currentUser.displayName || 'User',
+                photoURL: userData.photoURL || userData.profilePicture || currentUser.photoURL,
+              }));
+            }
+          } catch (error) {
+            console.error("Error refreshing user profile:", error);
+          }
+        };
+
+        refreshUserProfile();
+      }
+    }, [currentUser])
+  );
+
   // Fetch upcoming appointments from Firestore
   useEffect(() => {
     if (!currentUser) {
@@ -42,25 +138,22 @@ export default function Profile({ navigation }) {
     setIsLoading(true);
 
     const appointmentsRef = collection(db, 'appointments');
-    // The updated query to sort by most recent booking (createdAt descending)
     const q = query(
       appointmentsRef,
       where('userId', '==', currentUser.uid),
       where('status', '==', 'confirmed'),
-      orderBy('createdAt', 'desc') // Change 'date' to 'createdAt' and 'asc' to 'desc'
+      orderBy('createdAt', 'desc')
     );
 
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
       const appointments = [];
-      const now = new Date(); // Get the current time for filtering
+      const now = new Date();
 
       querySnapshot.forEach((doc) => {
         const data = doc.data();
-        // Check if data.date exists and is a valid format
         if (data.date) {
           const appointmentDate = new Date(data.date);
          
-          // Filter out past appointments (still a good practice)
           if (appointmentDate >= now) {
             appointments.push({
               id: doc.id,
@@ -77,7 +170,6 @@ export default function Profile({ navigation }) {
       setIsLoading(false);
     });
 
-    // Unsubscribe from the listener when the component unmounts
     return () => unsubscribe();
   }, [currentUser]);
 
@@ -133,7 +225,6 @@ export default function Profile({ navigation }) {
       );
     }
    
-    // Display only the first upcoming appointment (the most recent booking)
     const appointment = upcomingAppointments[0];
     const appointmentDate = appointment.date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
 
@@ -186,10 +277,23 @@ export default function Profile({ navigation }) {
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.userInfo}>
-            <Image source={require("../../assets/profile/photo.png")} style={styles.profileImage} />
+            {userProfile.photoURL ? (
+              <Image 
+                source={{ uri: userProfile.photoURL }} 
+                style={styles.profileImage}
+                defaultSource={require("../../assets/profile/photo.png")}
+              />
+            ) : (
+              <Image 
+                source={require("../../assets/profile/photo.png")} 
+                style={styles.profileImage} 
+              />
+            )}
             <View style={styles.userText}>
               <Text style={styles.greeting}>Hello</Text>
-              <Text style={styles.userName}>Clara Lauren</Text>
+              <Text style={styles.userName}>
+                {userProfile.isLoading ? 'Loading...' : userProfile.displayName}
+              </Text>
             </View>
           </View>
           <View style={styles.headerIcons}>
@@ -322,7 +426,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 25,
     paddingTop: 20,
     paddingBottom: 20,
-    height: 120,
+    height: 125,
     backgroundColor: "#1290D5",
   },
   userInfo: {

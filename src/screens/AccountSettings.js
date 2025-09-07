@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useContext } from "react"
+import React, { useState, useContext, useEffect } from "react"
 import {
   View,
   Text,
@@ -11,10 +11,19 @@ import {
   ScrollView,
   Image,
   Modal,
+  Alert,
+  ActivityIndicator,
+  Platform,
 } from "react-native"
 import { Ionicons } from "@expo/vector-icons"
 import { SafeAreaProvider } from "react-native-safe-area-context"
 import * as ImagePicker from "expo-image-picker"
+import { uploadToCloudinaryRN } from '../config/cloudinaryConfig';
+
+// Firebase imports
+import { db, auth } from '../config/firebaseConfig'
+import { doc, updateDoc, getDoc, setDoc } from 'firebase/firestore'
+import { updateProfile } from 'firebase/auth'
 
 // Make sure the path to your UserContext.js file is correct
 import { UserContext } from '../context/UserContext'
@@ -52,37 +61,183 @@ const SuccessModal = ({ isVisible, onClose }) => {
 export default function AccountSettings({ navigation }) {
   // Use the useContext hook to get the shared state and update function
   const { userProfile, setUserProfile } = useContext(UserContext)
-  
-  // Initialize local state with values from the global context
-  const [name, setName] = useState(userProfile.name)
-  const [email, setEmail] = useState(userProfile.email)
-  const [phoneNumber, setPhoneNumber] = useState(userProfile.phoneNumber)
+
+  // Initialize local state
+  const [name, setName] = useState('')
+  const [email, setEmail] = useState('')
+  const [phoneNumber, setPhoneNumber] = useState('')
+  const [profileImageUri, setProfileImageUri] = useState(null)
   const [isSuccess, setIsSuccess] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
+  const [isSaving, setIsSaving] = useState(false)
 
-  const handleImagePicker = async () => {
-    let result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 1,
-    })
+  // Get current user
+  const currentUser = auth.currentUser
 
-    if (!result.canceled) {
-      const newImageUri = { uri: result.assets[0].uri }
-      // Update the global state with the new image URI
-      setUserProfile({ ...userProfile, profileImage: newImageUri })
+  // Load user data when component mounts
+  useEffect(() => {
+    loadUserData()
+  }, [])
+
+  const loadUserData = async () => {
+    if (!currentUser) {
+      setIsLoading(false)
+      return
+    }
+
+    try {
+      const userDocRef = doc(db, 'users', currentUser.uid)
+      const userDoc = await getDoc(userDocRef)
+      
+      if (userDoc.exists()) {
+        const userData = userDoc.data()
+        setName(userData.displayName || userData.name || currentUser.displayName || '')
+        setEmail(userData.email || currentUser.email || '')
+        setPhoneNumber(userData.phoneNumber || userData.phone || '')
+        setProfileImageUri(userData.photoURL || userData.profilePicture || currentUser.photoURL)
+      } else {
+        // If no document exists, use Auth data
+        setName(currentUser.displayName || '')
+        setEmail(currentUser.email || '')
+        setPhoneNumber('')
+        setProfileImageUri(currentUser.photoURL)
+      }
+    } catch (error) {
+      console.error("Error loading user data:", error)
+      Alert.alert("Error", "Failed to load user data")
+    } finally {
+      setIsLoading(false)
     }
   }
 
-  const handleSaveChanges = () => {
-    // Update the global state with the new name, email, and phone number
-    setUserProfile({
-      ...userProfile,
-      name,
-      email,
-      phoneNumber,
-    })
-    setIsSuccess(true)
+  const handleImagePicker = async () => {
+    try {
+      // Request permissions
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync()
+      if (status !== 'granted') {
+        Alert.alert("Permission Required", "Please grant permission to access photos")
+        return
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+        base64: false,
+      })
+
+      console.log("Image picker result:", result)
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const newImageUri = result.assets[0].uri
+        console.log("Selected image URI:", newImageUri)
+        
+        setProfileImageUri(newImageUri)
+        
+        // Update the context immediately for UI feedback
+        setUserProfile({ 
+          ...userProfile, 
+          profileImage: { uri: newImageUri }
+        })
+      }
+    } catch (error) {
+      console.error("Error picking image:", error)
+      Alert.alert("Error", "Failed to pick image")
+    }
+  }
+
+  const handleSaveChanges = async () => {
+    if (!currentUser) {
+      Alert.alert("Error", "No user logged in")
+      return
+    }
+
+    if (!name.trim()) {
+      Alert.alert("Validation Error", "Name cannot be empty")
+      return
+    }
+
+    if (!email.trim()) {
+      Alert.alert("Validation Error", "Email cannot be empty")
+      return
+    }
+
+    setIsSaving(true)
+
+    try {
+      let photoURL = profileImageUri
+
+      // Upload new profile picture if it's a local URI (starts with file:// or content://)
+      if (profileImageUri && (profileImageUri.startsWith('file://') || profileImageUri.startsWith('content://') || profileImageUri.includes('ImagePicker'))) {
+        console.log("Uploading new profile image to Cloudinary...")
+        console.log("Image URI to upload:", profileImageUri)
+        
+        try {
+          // Create the image picker result object that uploadToCloudinaryRN expects
+          const imagePickerResult = {
+            assets: [{
+              uri: profileImageUri,
+              type: 'image/jpeg',
+              fileName: `profile-${currentUser.uid}-${Date.now()}.jpg`
+            }]
+          }
+          
+          const uploadResult = await uploadToCloudinaryRN(imagePickerResult)
+          photoURL = uploadResult.url
+          console.log("New photo URL from Cloudinary:", photoURL)
+        } catch (uploadError) {
+          console.error("Image upload failed:", uploadError)
+          throw new Error(`Image upload failed: ${uploadError.message}`)
+        }
+      }
+
+      // Prepare user data
+      const userData = {
+        displayName: name.trim(),
+        name: name.trim(),
+        email: email.trim(),
+        phoneNumber: phoneNumber.trim(),
+        photoURL: photoURL,
+        profilePicture: photoURL,
+        updatedAt: new Date(),
+      }
+
+      console.log("Saving user data to Firestore...")
+      // Save to Firestore
+      const userDocRef = doc(db, 'users', currentUser.uid)
+      await setDoc(userDocRef, userData, { merge: true })
+
+      console.log("Updating Firebase Auth profile...")
+      // Update Firebase Auth profile
+      await updateProfile(currentUser, {
+        displayName: name.trim(),
+        photoURL: photoURL,
+      })
+
+      // Update the context
+      setUserProfile({
+        ...userProfile,
+        name: name.trim(),
+        email: email.trim(),
+        phoneNumber: phoneNumber.trim(),
+        profileImage: photoURL ? { uri: photoURL } : userProfile.profileImage,
+      })
+
+      console.log("Profile updated successfully")
+      setIsSuccess(true)
+    } catch (error) {
+      console.error("Error saving changes:", error)
+      
+      let errorMessage = "Failed to save changes. Please try again."
+      if (error.message) {
+        errorMessage = error.message
+      }
+      
+      Alert.alert("Error", errorMessage)
+    } finally {
+      setIsSaving(false)
+    }
   }
 
   const handleChangePasswordPress = () => {
@@ -91,6 +246,22 @@ export default function AccountSettings({ navigation }) {
 
   const handleGoBack = () => {
     navigation.goBack()
+  }
+
+  const handleCloseModal = () => {
+    setIsSuccess(false)
+    navigation.navigate("SettingsScreen")
+  }
+
+  if (isLoading) {
+    return (
+      <SafeAreaProvider>
+        <SafeAreaView style={[styles.container, styles.loadingContainer]}>
+          <ActivityIndicator size="large" color="#007AFF" />
+          <Text style={styles.loadingText}>Loading profile...</Text>
+        </SafeAreaView>
+      </SafeAreaProvider>
+    )
   }
 
   return (
@@ -111,10 +282,20 @@ export default function AccountSettings({ navigation }) {
 
           {/* Profile Picture Section */}
           <View style={styles.profileSection}>
-            <TouchableOpacity onPress={handleImagePicker}>
+            <TouchableOpacity onPress={handleImagePicker} disabled={isSaving}>
               <View style={styles.profileImageContainer}>
-                {/* Use the profileImage from the global state */}
-                <Image source={userProfile.profileImage} style={styles.profileImage} />
+                {profileImageUri ? (
+                  <Image 
+                    source={{ uri: profileImageUri }} 
+                    style={styles.profileImage}
+                    defaultSource={require("../../assets/profile/photo.png")}
+                  />
+                ) : (
+                  <Image 
+                    source={require("../../assets/profile/photo.png")} 
+                    style={styles.profileImage} 
+                  />
+                )}
                 <View style={styles.editIconContainer}>
                   <Ionicons name="camera" size={20} color="#fff" />
                 </View>
@@ -125,18 +306,19 @@ export default function AccountSettings({ navigation }) {
           {/* Profile Details Section */}
           <View style={styles.detailsSection}>
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Name</Text>
+              <Text style={styles.label}>Name *</Text>
               <TextInput
                 style={styles.input}
                 value={name}
                 onChangeText={setName}
                 placeholder="Enter your full name"
                 placeholderTextColor="#999"
+                editable={!isSaving}
               />
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Email</Text>
+              <Text style={styles.label}>Email *</Text>
               <TextInput
                 style={styles.input}
                 value={email}
@@ -144,6 +326,8 @@ export default function AccountSettings({ navigation }) {
                 placeholder="Enter your email"
                 keyboardType="email-address"
                 placeholderTextColor="#999"
+                editable={!isSaving}
+                autoCapitalize="none"
               />
             </View>
 
@@ -156,6 +340,7 @@ export default function AccountSettings({ navigation }) {
                 placeholder="Enter your phone number"
                 keyboardType="phone-pad"
                 placeholderTextColor="#999"
+                editable={!isSaving}
               />
             </View>
           </View>
@@ -165,6 +350,7 @@ export default function AccountSettings({ navigation }) {
             <TouchableOpacity
               style={styles.menuItem}
               onPress={handleChangePasswordPress}
+              disabled={isSaving}
             >
               <View style={styles.menuLeft}>
                 <View style={styles.iconContainer}>
@@ -180,14 +366,23 @@ export default function AccountSettings({ navigation }) {
         {/* Save Button */}
         <View style={styles.buttonContainer}>
           <TouchableOpacity
-            style={styles.saveButton}
+            style={[styles.saveButton, isSaving && styles.saveButtonDisabled]}
             onPress={handleSaveChanges}
+            disabled={isSaving}
           >
-            <Text style={styles.saveButtonText}>Save Changes</Text>
+            {isSaving ? (
+              <View style={styles.savingContainer}>
+                <ActivityIndicator size="small" color="#fff" />
+                <Text style={styles.savingText}>Saving...</Text>
+              </View>
+            ) : (
+              <Text style={styles.saveButtonText}>Save Changes</Text>
+            )}
           </TouchableOpacity>
         </View>
       </SafeAreaView>
-      <SuccessModal isVisible={isSuccess} onClose={() => setIsSuccess(false)} />
+      
+      <SuccessModal isVisible={isSuccess} onClose={handleCloseModal} />
     </SafeAreaProvider>
   )
 }
@@ -196,6 +391,15 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#F8F9FA",
+  },
+  loadingContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 16,
+    color: "#666",
   },
   header: {
     flexDirection: "row",
@@ -311,14 +515,27 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: "center",
   },
+  saveButtonDisabled: {
+    backgroundColor: "#999",
+  },
   saveButtonText: {
     color: "#fff",
     fontSize: 18,
     fontWeight: "600",
   },
+  savingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  savingText: {
+    color: "#fff",
+    fontSize: 18,
+    fontWeight: "600",
+    marginLeft: 10,
+  },
 })
 
-// Styles for the new Modal
+// Styles for the Modal
 const modalStyles = StyleSheet.create({
   centeredView: {
     flex: 1,

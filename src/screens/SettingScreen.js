@@ -1,24 +1,146 @@
 "use client"
-import React, { useContext } from "react"
-import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, Image, ScrollView } from "react-native"
+import React, { useContext, useEffect, useState, useCallback } from "react"
+import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, Image, ScrollView, ActivityIndicator } from "react-native"
 import { Ionicons } from "@expo/vector-icons"
 import { SafeAreaProvider } from "react-native-safe-area-context"
+import { useFocusEffect } from '@react-navigation/native'
 import Navbar from "../navigations/navbar"
 import { UserContext } from '../context/UserContext'
+import { uploadToCloudinary } from '../config/cloudinaryConfig';
+
+// Firebase imports
+import { db, auth } from '../config/firebaseConfig'
+import { doc, getDoc, onSnapshot } from 'firebase/firestore'
 
 export default function SettingsScreen({ navigation }) {
-  const { userProfile } = useContext(UserContext)
+  const { userProfile, setUserProfile } = useContext(UserContext)
+  const [isLoading, setIsLoading] = useState(true)
+  const [currentUser, setCurrentUser] = useState(null)
+
+  // Auth state listener
+  useEffect(() => {
+    const unsubscribeAuth = auth.onAuthStateChanged(user => {
+      setCurrentUser(user)
+    })
+    return () => unsubscribeAuth()
+  }, [])
+
+  // Load user data from Firebase
+  const loadUserData = async () => {
+    if (!currentUser) {
+      setIsLoading(false)
+      return
+    }
+
+    try {
+      const userDocRef = doc(db, 'users', currentUser.uid)
+      const userDoc = await getDoc(userDocRef)
+      
+      if (userDoc.exists()) {
+        const userData = userDoc.data()
+        setUserProfile({
+          ...userProfile,
+          name: userData.displayName || userData.name || currentUser.displayName || 'User',
+          email: userData.email || currentUser.email || '',
+          phoneNumber: userData.phoneNumber || userData.phone || '',
+          profileImage: userData.photoURL || userData.profilePicture ? 
+            { uri: userData.photoURL || userData.profilePicture } : 
+            require("../../assets/profile/photo.png")
+        })
+      } else {
+        // If no document exists, use Auth data
+        setUserProfile({
+          ...userProfile,
+          name: currentUser.displayName || 'User',
+          email: currentUser.email || '',
+          phoneNumber: '',
+          profileImage: currentUser.photoURL ? 
+            { uri: currentUser.photoURL } : 
+            require("../../assets/profile/photo.png")
+        })
+      }
+    } catch (error) {
+      console.error("Error loading user data:", error)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  // Real-time listener for user profile changes
+  useEffect(() => {
+    if (!currentUser) return
+
+    const userDocRef = doc(db, 'users', currentUser.uid)
+    const unsubscribeUser = onSnapshot(userDocRef, (doc) => {
+      if (doc.exists()) {
+        const userData = doc.data()
+        setUserProfile(prev => ({
+          ...prev,
+          name: userData.displayName || userData.name || currentUser.displayName || 'User',
+          email: userData.email || currentUser.email || '',
+          phoneNumber: userData.phoneNumber || userData.phone || '',
+          profileImage: userData.photoURL || userData.profilePicture ? 
+            { uri: userData.photoURL || userData.profilePicture } : 
+            require("../../assets/profile/photo.png")
+        }))
+      }
+    }, (error) => {
+      console.error("Error listening to user profile changes:", error)
+    })
+
+    return () => unsubscribeUser()
+  }, [currentUser])
+
+  // Load data on component mount
+  useEffect(() => {
+    loadUserData()
+  }, [currentUser])
+
+  // Refresh data when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      if (currentUser) {
+        loadUserData()
+      }
+    }, [currentUser])
+  )
 
   const handleMenuPress = (menuItem) => {
     console.log("Menu pressed:", menuItem)
     if (menuItem === "Account") {
       navigation?.navigate("AccountSettings");
     }
+    // No action for Notifications and Contact Support yet, but you can add navigation here
   }
 
-  const handleLogout = () => {
-    console.log("Logout pressed")
-    navigation.navigate("Login")
+  const handleLogout = async () => {
+    try {
+      console.log("Logout pressed")
+      await auth.signOut()
+      
+      // Reset user profile context
+      setUserProfile({
+        name: '',
+        email: '',
+        phoneNumber: '',
+        profileImage: require("../../assets/profile/photo.png")
+      })
+      
+      navigation.navigate("Login")
+    } catch (error) {
+      console.error("Error signing out:", error)
+    }
+  }
+
+  if (isLoading) {
+    return (
+      <SafeAreaProvider>
+        <SafeAreaView style={[styles.container, styles.loadingContainer]}>
+          <ActivityIndicator size="large" color="#007AFF" />
+          <Text style={styles.loadingText}>Loading profile...</Text>
+        </SafeAreaView>
+      </SafeAreaProvider>
+    )
   }
 
   return (
@@ -38,13 +160,21 @@ export default function SettingsScreen({ navigation }) {
             onPress={() => handleMenuPress("Account")}
           >
             <View style={styles.profileImageContainer}>
-              <Image 
-                source={userProfile.profileImage}
-                style={styles.profileImage} 
-              />
+              {userProfile.profileImage && typeof userProfile.profileImage === 'object' && userProfile.profileImage.uri ? (
+                <Image 
+                  source={userProfile.profileImage}
+                  style={styles.profileImage}
+                  defaultSource={require("../../assets/profile/photo.png")}
+                />
+              ) : (
+                <Image 
+                  source={require("../../assets/profile/photo.png")}
+                  style={styles.profileImage} 
+                />
+              )}
             </View>
-            <Text style={styles.profileName}>{userProfile.name}</Text>
-            <Text style={styles.profileEmail}>{userProfile.email}</Text>
+            <Text style={styles.profileName}>{userProfile.name || 'User'}</Text>
+            <Text style={styles.profileEmail}>{userProfile.email || 'No email'}</Text>
           </TouchableOpacity>
 
           {/* Settings Title */}
@@ -74,34 +204,6 @@ export default function SettingsScreen({ navigation }) {
                 <Ionicons name="notifications-outline" size={20} color="#666" />
               </View>
               <Text style={styles.menuText}>Notifications</Text>
-            </View>
-            <Ionicons name="chevron-forward-outline" size={20} color="#999" />
-          </TouchableOpacity>
-
-          {/* Dental History */}
-          <TouchableOpacity 
-            style={styles.menuItem}
-            onPress={() => handleMenuPress("DentalHistory")}
-          >
-            <View style={styles.menuLeft}>
-              <View style={styles.iconContainer}>
-                <Ionicons name="time-outline" size={20} color="#666" />
-              </View>
-              <Text style={styles.menuText}>Dental History</Text>
-            </View>
-            <Ionicons name="chevron-forward-outline" size={20} color="#999" />
-          </TouchableOpacity>
-
-          {/* Terms and Policies */}
-          <TouchableOpacity 
-            style={styles.menuItem}
-            onPress={() => handleMenuPress("TermsAndPolicies")}
-          >
-            <View style={styles.menuLeft}>
-              <View style={styles.iconContainer}>
-                <Ionicons name="document-text-outline" size={20} color="#666" />
-              </View>
-              <Text style={styles.menuText}>Terms and Policies</Text>
             </View>
             <Ionicons name="chevron-forward-outline" size={20} color="#999" />
           </TouchableOpacity>
@@ -148,6 +250,15 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#fff",
+  },
+  loadingContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 16,
+    color: "#666",
   },
   content: {
     flex: 1,
