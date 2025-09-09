@@ -17,7 +17,7 @@ export default function Profile({ navigation }) {
   const [currentUser, setCurrentUser] = useState(null);
   // Add new state for user profile data
   const [userProfile, setUserProfile] = useState({
-    displayName: 'Clara Lauren', // Default name
+    displayName: '', // Default name
     photoURL: null, // Will hold the profile picture URL
     isLoading: true
   });
