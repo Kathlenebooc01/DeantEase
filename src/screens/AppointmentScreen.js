@@ -288,7 +288,8 @@ const AppointmentScreen = ({ navigation }) => {
 
       const appointmentData = {
         userId: currentUser.uid,
-        userName: 'Claura Lauren',
+        // ✅ CORRECTED: Use the user's display name from Firebase Auth
+        userName: currentUser.displayName || 'User',
         userEmail: currentUser.email,
         date: selectedDate.toISOString(),
         time: selectedTime,
@@ -651,7 +652,8 @@ const AppointmentScreen = ({ navigation }) => {
             <View style={styles.preConfirmationDetails}>
               <View style={styles.detailRow}>
                 <Ionicons name="person-outline" size={24} color="#6B7280" style={styles.detailIcon} />
-                <Text style={styles.detailText}>Claura Lauren</Text>
+                {/* ✅ CORRECTED: Display the user's actual name here */}
+                <Text style={styles.detailText}>{auth.currentUser?.displayName || 'User'}</Text>
               </View>
               <View style={styles.detailRow}>
                 <Ionicons name="calendar-outline" size={24} color="#6B7280" style={styles.detailIcon} />
@@ -662,7 +664,7 @@ const AppointmentScreen = ({ navigation }) => {
                 </Text>
               </View>
               <View style={styles.detailRow}>
-                <Ionicons name="tooth-outline" size={24} color="#6B7280" style={styles.detailIcon} />
+                <Ionicons name="medical-outline" size={24} color="#6B7280" style={styles.detailIcon} />
                 <Text style={styles.detailText}>
                   {selectedServices.join(', ')}
                 </Text>

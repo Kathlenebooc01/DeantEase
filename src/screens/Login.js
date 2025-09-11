@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef } from "react"
+import { useState, useRef, useEffect } from "react"
 import {
   View,
   Text,
@@ -20,10 +20,10 @@ import {
 } from "react-native"
 import { Ionicons } from "@expo/vector-icons"
 import { SafeAreaProvider } from "react-native-safe-area-context"
+import AsyncStorage from "@react-native-async-storage/async-storage"
 
-// Step 1: Import Firebase Auth and the auth object from your config
 import { signInWithEmailAndPassword } from "firebase/auth";
-import { auth, db } from '../config/firebaseConfig'; // This is the correct relative path
+import { auth } from '../config/firebaseConfig';
 
 const { width, height } = Dimensions.get("window")
 
@@ -36,26 +36,42 @@ export default function LoginScreen({ navigation }) {
   const [passwordFocused, setPasswordFocused] = useState(false)
   const [emailError, setEmailError] = useState("")
   const [passwordError, setPasswordError] = useState("")
-  const [generalError, setGeneralError] = useState(""); // State for general login errors
+  const [generalError, setGeneralError] = useState("");
 
+  // New state for "Remember Me" feature
+  const [rememberMe, setRememberMe] = useState(false);
 
-  // Button animation only
   const buttonScale = useRef(new Animated.Value(1)).current
+
+  // --- Load "Remember Me" preference on component mount ---
+  useEffect(() => {
+    const loadRememberMe = async () => {
+      try {
+        const storedEmail = await AsyncStorage.getItem('userEmail');
+        const storedRememberMe = await AsyncStorage.getItem('rememberMe');
+        if (storedEmail !== null && storedRememberMe === 'true') {
+          setEmail(storedEmail);
+          setRememberMe(true);
+        }
+      } catch (e) {
+        console.error("Failed to load remember me preference:", e);
+      }
+    };
+
+    loadRememberMe();
+  }, []);
 
   const validateEmail = (email) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
     return emailRegex.test(email)
   }
 
-  // Step 2: Update the handleLogin function to use Firebase
   const handleLogin = async () => {
     // Reset errors
     setEmailError("")
     setPasswordError("")
     setGeneralError("")
 
-
-    // --- Form Validation (Good practice, keep this) ---
     let hasError = false
     if (!email.trim()) {
       setEmailError("Email is required")
@@ -75,7 +91,6 @@ export default function LoginScreen({ navigation }) {
 
     if (hasError) return
 
-    // --- Button Animation (Good practice, keep this) ---
     Animated.sequence([
       Animated.timing(buttonScale, {
         toValue: 0.95,
@@ -91,15 +106,20 @@ export default function LoginScreen({ navigation }) {
 
     setIsLoading(true)
 
-    // --- Firebase Authentication Logic ---
     try {
-      // This function attempts to sign in the user with Firebase
       await signInWithEmailAndPassword(auth, email, password);
-
-      // If the above line doesn't throw an error, the login is successful.
       console.log("User logged in successfully!");
 
-      // Navigate to the Profile screen after successful login
+      // --- Handle "Remember Me" logic on successful login ---
+      if (rememberMe) {
+        await AsyncStorage.setItem('rememberMe', 'true');
+        await AsyncStorage.setItem('userEmail', email);
+      } else {
+        // If not "remember me", clear any previous stored data
+        await AsyncStorage.removeItem('rememberMe');
+        await AsyncStorage.removeItem('userEmail');
+      }
+
       if (navigation) {
         navigation.navigate("Profile");
       } else {
@@ -107,17 +127,14 @@ export default function LoginScreen({ navigation }) {
       }
 
     } catch (error) {
-      // This block runs if Firebase returns an error
       console.error("Firebase Login Error:", error.code, error.message);
 
-      // Provide user-friendly feedback based on the error code
       if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
         setGeneralError("Invalid email or password. Please try again.");
       } else {
         setGeneralError("An unexpected error occurred. Please try again later.");
       }
     } finally {
-      // This will run whether the login was successful or not
       setIsLoading(false);
     }
   }
@@ -168,9 +185,7 @@ export default function LoginScreen({ navigation }) {
 
               <Text style={styles.loginTitle}>Login</Text>
 
-              {/* Display general error message here */}
               {generalError ? <Text style={styles.generalErrorText}>{generalError}</Text> : null}
-
 
               {/* Email Input */}
               <View style={styles.inputContainer}>
@@ -252,9 +267,27 @@ export default function LoginScreen({ navigation }) {
                 {passwordError ? <Text style={styles.errorText}>{passwordError}</Text> : null}
               </View>
 
-              <TouchableOpacity onPress={handleForgotPassword} style={styles.forgotContainer}>
-                <Text style={styles.forgot}>Forgot password?</Text>
-              </TouchableOpacity>
+              <View style={styles.rememberMeForgotContainer}>
+                {/* Remember Me Checkbox */}
+                <TouchableOpacity
+                  onPress={() => setRememberMe(!rememberMe)}
+                  style={styles.rememberMeContainer}
+                >
+                  <View
+                    style={[
+                      styles.checkbox,
+                      rememberMe && styles.checkboxChecked
+                    ]}
+                  >
+                    {rememberMe && <Ionicons name="checkmark" size={16} color="#3B82F6" />}
+                  </View>
+                  <Text style={styles.rememberMeText}>Remember me</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity onPress={handleForgotPassword} style={styles.forgotContainer}>
+                  <Text style={styles.forgot}>Forgot password?</Text>
+                </TouchableOpacity>
+              </View>
 
               <Animated.View style={{ transform: [{ scale: buttonScale }] }}>
                 <TouchableOpacity
@@ -286,7 +319,6 @@ export default function LoginScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  // ... (Your existing styles remain unchanged)
   container: {
     flex: 1,
     backgroundColor: "#3B82F6",
@@ -395,9 +427,37 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '500'
   },
+  rememberMeForgotContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  rememberMeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  checkbox: {
+    width: 20,
+    height: 20,
+    borderRadius: 4,
+    borderWidth: 2,
+    borderColor: "#ffffff",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 8,
+    backgroundColor: 'transparent',
+  },
+  checkboxChecked: {
+    backgroundColor: "#ffffff",
+    borderColor: "#ffffff",
+  },
+  rememberMeText: {
+    color: '#ffffff',
+    fontSize: 14,
+  },
   forgotContainer: {
     alignSelf: "flex-end",
-    marginBottom: 24,
   },
   forgot: {
     color: "#ffffff",

@@ -381,9 +381,9 @@ export default function SignUpScreen({ navigation }) {
             </Text>
             <TouchableOpacity
               style={styles.goToLoginButton}
-              onPress={handleLogin}
+              onPress={() => navigation?.navigate("Profile")}
             >
-              <Text style={styles.goToLoginButtonText}>Go to Login</Text>
+              <Text style={styles.goToLoginButtonText}>Okay</Text>
             </TouchableOpacity>
           </View>
         </SafeAreaView>

@@ -59,10 +59,8 @@ const SuccessModal = ({ isVisible, onClose }) => {
 }
 
 export default function AccountSettings({ navigation }) {
-  // Use the useContext hook to get the shared state and update function
   const { userProfile, setUserProfile } = useContext(UserContext)
 
-  // Initialize local state
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [phoneNumber, setPhoneNumber] = useState('')
@@ -71,10 +69,8 @@ export default function AccountSettings({ navigation }) {
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
 
-  // Get current user
   const currentUser = auth.currentUser
 
-  // Load user data when component mounts
   useEffect(() => {
     loadUserData()
   }, [])
@@ -96,7 +92,6 @@ export default function AccountSettings({ navigation }) {
         setPhoneNumber(userData.phoneNumber || userData.phone || '')
         setProfileImageUri(userData.photoURL || userData.profilePicture || currentUser.photoURL)
       } else {
-        // If no document exists, use Auth data
         setName(currentUser.displayName || '')
         setEmail(currentUser.email || '')
         setPhoneNumber('')
@@ -112,7 +107,6 @@ export default function AccountSettings({ navigation }) {
 
   const handleImagePicker = async () => {
     try {
-      // Request permissions
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync()
       if (status !== 'granted') {
         Alert.alert("Permission Required", "Please grant permission to access photos")
@@ -135,7 +129,6 @@ export default function AccountSettings({ navigation }) {
         
         setProfileImageUri(newImageUri)
         
-        // Update the context immediately for UI feedback
         setUserProfile({ 
           ...userProfile, 
           profileImage: { uri: newImageUri }
@@ -168,13 +161,11 @@ export default function AccountSettings({ navigation }) {
     try {
       let photoURL = profileImageUri
 
-      // Upload new profile picture if it's a local URI (starts with file:// or content://)
       if (profileImageUri && (profileImageUri.startsWith('file://') || profileImageUri.startsWith('content://') || profileImageUri.includes('ImagePicker'))) {
         console.log("Uploading new profile image to Cloudinary...")
         console.log("Image URI to upload:", profileImageUri)
         
         try {
-          // Create the image picker result object that uploadToCloudinaryRN expects
           const imagePickerResult = {
             assets: [{
               uri: profileImageUri,
@@ -192,7 +183,6 @@ export default function AccountSettings({ navigation }) {
         }
       }
 
-      // Prepare user data
       const userData = {
         displayName: name.trim(),
         name: name.trim(),
@@ -204,24 +194,21 @@ export default function AccountSettings({ navigation }) {
       }
 
       console.log("Saving user data to Firestore...")
-      // Save to Firestore
       const userDocRef = doc(db, 'users', currentUser.uid)
       await setDoc(userDocRef, userData, { merge: true })
 
       console.log("Updating Firebase Auth profile...")
-      // Update Firebase Auth profile
       await updateProfile(currentUser, {
         displayName: name.trim(),
         photoURL: photoURL,
       })
 
-      // Update the context
       setUserProfile({
         ...userProfile,
         name: name.trim(),
         email: email.trim(),
         phoneNumber: phoneNumber.trim(),
-        profileImage: photoURL ? { uri: photoURL } : userProfile.profileImage,
+        profileImage: photoURL ? { uri: photoURL } : null,
       })
 
       console.log("Profile updated successfully")
@@ -288,13 +275,11 @@ export default function AccountSettings({ navigation }) {
                   <Image 
                     source={{ uri: profileImageUri }} 
                     style={styles.profileImage}
-                    defaultSource={require("../../assets/profile/photo.png")}
                   />
                 ) : (
-                  <Image 
-                    source={require("../../assets/profile/photo.png")} 
-                    style={styles.profileImage} 
-                  />
+                  <View style={styles.profileImagePlaceholder}>
+                    <Ionicons name="camera" size={70} color="#fff" />
+                  </View>
                 )}
                 <View style={styles.editIconContainer}>
                   <Ionicons name="camera" size={20} color="#fff" />
@@ -439,6 +424,14 @@ const styles = StyleSheet.create({
     height: 150,
     borderRadius: 75,
   },
+  profileImagePlaceholder: { // New style for the placeholder
+    width: 150,
+    height: 150,
+    borderRadius: 75,
+    backgroundColor: "#ccc",
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   editIconContainer: {
     position: "absolute",
     bottom: 5,
@@ -535,7 +528,6 @@ const styles = StyleSheet.create({
   },
 })
 
-// Styles for the Modal
 const modalStyles = StyleSheet.create({
   centeredView: {
     flex: 1,

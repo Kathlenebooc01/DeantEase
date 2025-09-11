@@ -1,8 +1,9 @@
-import { NavigationContainer } from "@react-navigation/native"
+import { NavigationContainer, ThemeContext } from "@react-navigation/native"
 import { createStackNavigator } from "@react-navigation/stack"
 
 // Import the UserProvider from your context file
 import { UserProvider } from "./src/context/UserContext"
+import { ThemeProvider } from "./src/context/ThemeContext"
 
 import Opening from "./src/screens/Opening"
 import GetStartedScreen from "./src/screens/Getstartedscreen"
@@ -49,6 +50,7 @@ export default function App() {
           <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} />
           <Stack.Screen name="MessagesScreen" component={MessagesScreen} />
           <Stack.Screen name="ChatMessages" component={ChatMessages} />
+          <Stack.Screen name="ThemeContext" component={ThemeContext} />
         </Stack.Navigator>
       </NavigationContainer>
     </UserProvider>

@@ -45,10 +45,9 @@ export default function SettingsScreen({ navigation }) {
           phoneNumber: userData.phoneNumber || userData.phone || '',
           profileImage: userData.photoURL || userData.profilePicture ? 
             { uri: userData.photoURL || userData.profilePicture } : 
-            require("../../assets/profile/photo.png")
+            null
         })
       } else {
-        // If no document exists, use Auth data
         setUserProfile({
           ...userProfile,
           name: currentUser.displayName || 'User',
@@ -56,7 +55,7 @@ export default function SettingsScreen({ navigation }) {
           phoneNumber: '',
           profileImage: currentUser.photoURL ? 
             { uri: currentUser.photoURL } : 
-            require("../../assets/profile/photo.png")
+            null
         })
       }
     } catch (error) {
@@ -81,7 +80,7 @@ export default function SettingsScreen({ navigation }) {
           phoneNumber: userData.phoneNumber || userData.phone || '',
           profileImage: userData.photoURL || userData.profilePicture ? 
             { uri: userData.photoURL || userData.profilePicture } : 
-            require("../../assets/profile/photo.png")
+            null
         }))
       }
     }, (error) => {
@@ -110,7 +109,6 @@ export default function SettingsScreen({ navigation }) {
     if (menuItem === "Account") {
       navigation?.navigate("AccountSettings");
     }
-    // No action for Notifications and Contact Support yet, but you can add navigation here
   }
 
   const handleLogout = async () => {
@@ -118,12 +116,11 @@ export default function SettingsScreen({ navigation }) {
       console.log("Logout pressed")
       await auth.signOut()
       
-      // Reset user profile context
       setUserProfile({
         name: '',
         email: '',
         phoneNumber: '',
-        profileImage: require("../../assets/profile/photo.png")
+        profileImage: null
       })
       
       navigation.navigate("Login")
@@ -160,17 +157,15 @@ export default function SettingsScreen({ navigation }) {
             onPress={() => handleMenuPress("Account")}
           >
             <View style={styles.profileImageContainer}>
-              {userProfile.profileImage && typeof userProfile.profileImage === 'object' && userProfile.profileImage.uri ? (
+              {userProfile.profileImage && userProfile.profileImage.uri ? (
                 <Image 
                   source={userProfile.profileImage}
                   style={styles.profileImage}
-                  defaultSource={require("../../assets/profile/photo.png")}
                 />
               ) : (
-                <Image 
-                  source={require("../../assets/profile/photo.png")}
-                  style={styles.profileImage} 
-                />
+                <View style={styles.profileImagePlaceholder}>
+                  <Ionicons name="person" size={50} color="#666" />
+                </View>
               )}
             </View>
             <Text style={styles.profileName}>{userProfile.name || 'User'}</Text>
@@ -280,6 +275,14 @@ const styles = StyleSheet.create({
     height: 80,
     borderRadius: 40,
     backgroundColor: "#e0e0e0",
+  },
+  profileImagePlaceholder: { // New style for the placeholder
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: "#e0e0e0",
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   profileName: {
     fontSize: 20,

@@ -1,3 +1,5 @@
+"use client"
+
 import { useState, useCallback, useEffect } from "react";
 import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, ScrollView, Image, Dimensions, ActivityIndicator } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
@@ -15,14 +17,12 @@ export default function Profile({ navigation }) {
   const [upcomingAppointments, setUpcomingAppointments] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState(null);
-  // Add new state for user profile data
   const [userProfile, setUserProfile] = useState({
-    displayName: '', // Default name
-    photoURL: null, // Will hold the profile picture URL
+    displayName: '',
+    photoURL: null,
     isLoading: true
   });
 
-  // Set header configuration on screen focus
   useFocusEffect(
     useCallback(() => {
       navigation.setOptions({
@@ -31,7 +31,6 @@ export default function Profile({ navigation }) {
     }, [navigation])
   );
 
-  // Auth state listener to get the current user
   useEffect(() => {
     const unsubscribeAuth = auth.onAuthStateChanged(user => {
       setCurrentUser(user);
@@ -39,7 +38,6 @@ export default function Profile({ navigation }) {
     return () => unsubscribeAuth();
   }, []);
 
-  // Fetch user profile data from Firestore
   useEffect(() => {
     if (!currentUser) {
       setUserProfile(prev => ({ ...prev, isLoading: false }));
@@ -59,7 +57,6 @@ export default function Profile({ navigation }) {
             isLoading: false
           });
         } else {
-          // If no document exists, use Auth data as fallback
           setUserProfile({
             displayName: currentUser.displayName || 'User',
             photoURL: currentUser.photoURL,
@@ -79,7 +76,6 @@ export default function Profile({ navigation }) {
     fetchUserProfile();
   }, [currentUser]);
 
-  // Real-time listener for user profile changes
   useEffect(() => {
     if (!currentUser) return;
 
@@ -101,7 +97,6 @@ export default function Profile({ navigation }) {
     return () => unsubscribeUser();
   }, [currentUser]);
 
-  // Refresh profile data when screen comes into focus
   useFocusEffect(
     useCallback(() => {
       if (currentUser) {
@@ -128,7 +123,7 @@ export default function Profile({ navigation }) {
     }, [currentUser])
   );
 
-  // Fetch upcoming appointments from Firestore
+  // FIXED: Updated appointments fetching logic
   useEffect(() => {
     if (!currentUser) {
       setIsLoading(false);
@@ -141,7 +136,7 @@ export default function Profile({ navigation }) {
     const q = query(
       appointmentsRef,
       where('userId', '==', currentUser.uid),
-      where('status', '==', 'confirmed'),
+      where('status', '==', 'confirmed'), // Only get confirmed appointments
       orderBy('createdAt', 'desc')
     );
 
@@ -153,16 +148,20 @@ export default function Profile({ navigation }) {
         const data = doc.data();
         if (data.date) {
           const appointmentDate = new Date(data.date);
-         
-          if (appointmentDate >= now) {
-            appointments.push({
-              id: doc.id,
-              ...data,
-              date: appointmentDate,
-            });
-          }
+          
+          // Only show confirmed appointments (these are considered upcoming)
+          const appointmentData = {
+            id: doc.id,
+            ...data,
+            date: appointmentDate,
+          };
+          appointments.push(appointmentData);
         }
       });
+
+      // Sort by appointment date (ascending)
+      appointments.sort((a, b) => a.date - b.date);
+      
       setUpcomingAppointments(appointments);
       setIsLoading(false);
     }, (error) => {
@@ -173,7 +172,6 @@ export default function Profile({ navigation }) {
     return () => unsubscribe();
   }, [currentUser]);
 
-  // Helper function to calculate end time
   const getEndTime = (startTime) => {
     if (!startTime) return 'N/A';
     const [time, period] = startTime.split(' ');
@@ -211,7 +209,6 @@ export default function Profile({ navigation }) {
     navigation.navigate("ViewAppointmentScreen");
   };
 
-  // Renders the upcoming appointment card
   const renderUpcomingAppointment = () => {
     if (isLoading) {
       return <ActivityIndicator size="large" color="#4A90E2" style={styles.loadingIndicator} />;
@@ -281,13 +278,11 @@ export default function Profile({ navigation }) {
               <Image 
                 source={{ uri: userProfile.photoURL }} 
                 style={styles.profileImage}
-                defaultSource={require("../../assets/profile/photo.png")}
               />
             ) : (
-              <Image 
-                source={require("../../assets/profile/photo.png")} 
-                style={styles.profileImage} 
-              />
+              <View style={styles.profileImagePlaceholder}>
+                <Ionicons name="person" size={30} color="#fff" />
+              </View>
             )}
             <View style={styles.userText}>
               <Text style={styles.greeting}>Hello</Text>
@@ -439,6 +434,15 @@ const styles = StyleSheet.create({
     borderRadius: 25,
     marginRight: 12,
     backgroundColor: "#fff",
+  },
+  profileImagePlaceholder: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    marginRight: 12,
+    backgroundColor: "rgba(255,255,255,0.3)",
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   userText: {
     justifyContent: "center",
