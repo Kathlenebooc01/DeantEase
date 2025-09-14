@@ -59,7 +59,7 @@ const ChatMessages = ({ navigation, route }) => {
       } else {
         const initialMessage = {
           id: "welcome_1",
-          text: `Welcome! You can send messages to ${contact.name}. ${doctorOnlineStatus ? "They are currently online and will respond soon." : "They will respond when they're available."}`,
+          text: `Welcome! You can send messages to ${contact.name}. ${doctorOnlineStatus ? "" : "They will respond when they're available."}`,
           time: getCurrentTime(),
           isFromUser: false,
           sender: contact.name,
@@ -71,7 +71,7 @@ const ChatMessages = ({ navigation, route }) => {
       console.error('Error loading messages:', error)
       const initialMessage = {
         id: "welcome_1",
-        text: `Welcome! You can send messages to ${contact.name}. ${doctorOnlineStatus ? "They are currently online and will respond soon." : "They will respond when they're available."}`,
+        text: `Welcome! You can send messages to ${contact.name}. ${doctorOnlineStatus ? "" : "They will respond when they're available."}`,
         time: getCurrentTime(),
         isFromUser: false,
         sender: contact.name,

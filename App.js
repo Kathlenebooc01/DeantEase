@@ -27,6 +27,7 @@ import ViewAppointmentScreen from "./src/screens/ViewAppointmentScreen"
 import ChangePasswordScreen from "./src/screens/ChangePasswordScreen"
 import MessagesScreen from "./src/screens/MessagesScreen"
 import ChatMessages from "./src/screens/ChatMessages"
+import ContactUs from "./src/screens/ContactUs" // Add this import
 
 const Stack = createStackNavigator()
 
@@ -85,6 +86,7 @@ const AppNavigator = () => {
         <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} />
         <Stack.Screen name="MessagesScreen" component={MessagesScreen} />
         <Stack.Screen name="ChatMessages" component={ChatMessages} />
+        <Stack.Screen name="ContactUs" component={ContactUs} />
         <Stack.Screen name="ThemeContext" component={ThemeContext} />
       </Stack.Navigator>
       

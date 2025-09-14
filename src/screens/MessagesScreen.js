@@ -1,15 +1,17 @@
-import React, { useState, useEffect, useCallback } from "react"
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, SafeAreaView, Alert, Modal } from "react-native"
-import { Ionicons } from "@expo/vector-icons"
-import Navbar from '../navigations/navbar'
-import AsyncStorage from '@react-native-async-storage/async-storage'
-import { useFocusEffect } from '@react-navigation/native'
+import React, { useState, useEffect, useCallback } from "react";
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, SafeAreaView, Alert, Modal, Animated } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from 'expo-linear-gradient';
+import Navbar from '../navigations/navbar';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useFocusEffect } from '@react-navigation/native';
 
 const MessagesScreen = ({ navigation }) => {
   const [conversations, setConversations] = useState([])
   const [showContextMenu, setShowContextMenu] = useState(false)
   const [selectedConversation, setSelectedConversation] = useState(null)
   const [menuPosition, setMenuPosition] = useState({ x: 0, y: 0 })
+  const [fadeAnim] = useState(new Animated.Value(0))
   
   // Initialize conversations data with real doctors
   const initializeConversations = () => {
@@ -19,24 +21,26 @@ const MessagesScreen = ({ navigation }) => {
         name: "Dr. Jessica",
         lastMessage: "Welcome! You can send messages to Dr. Jessica. They are currently online and will respond soon.",
         time: getCurrentTime(),
-        unreadCount: 0, // Start with 0 since it's just a welcome message
+        unreadCount: 0,
         isAI: false,
         avatar: "person",
         isOnline: true,
         specialty: "General Dentistry",
         status: "Available",
+        avatarColor: "#FF6B6B",
       },
       {
         id: "jane-sy",
         name: "Jane Sy",
         lastMessage: "Welcome! You can send messages to Jane Sy. They are currently online and will respond soon.",
         time: getCurrentTime(),
-        unreadCount: 0, // Start with 0 since it's just a welcome message
+        unreadCount: 0,
         isAI: false,
         avatar: "person",
-        isOnline: Math.random() > 0.5, // Random online status for demo
+        isOnline: Math.random() > 0.5,
         specialty: "Pediatric Dentistry",
         status: Math.random() > 0.5 ? "Available" : "Busy",
+        avatarColor: "#4ECDC4",
       },
     ]
     return initialConversations
@@ -79,6 +83,12 @@ const MessagesScreen = ({ navigation }) => {
   // Load conversations when component mounts
   useEffect(() => {
     loadConversations()
+    // Fade in animation
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 500,
+      useNativeDriver: true,
+    }).start()
   }, [])
 
   // Refresh conversations every time screen comes into focus
@@ -284,118 +294,186 @@ const MessagesScreen = ({ navigation }) => {
       >
         <View style={[styles.contextMenu, { top: menuPosition.y - 100, left: Math.max(10, menuPosition.x - 75) }]}>
           <TouchableOpacity style={styles.contextMenuItem} onPress={markAsUnread}>
-            <Ionicons name="mail-outline" size={20} color="#333" />
+            <Ionicons name="mail-outline" size={20} color="#6B73FF" />
             <Text style={styles.contextMenuText}>Mark as unread</Text>
           </TouchableOpacity>
           
           <View style={styles.contextMenuSeparator} />
           
           <TouchableOpacity style={styles.contextMenuItem} onPress={deleteConversation}>
-            <Ionicons name="trash-outline" size={20} color="#E91E63" />
-            <Text style={[styles.contextMenuText, { color: "#E91E63" }]}>Delete conversation</Text>
+            <Ionicons name="trash-outline" size={20} color="#FF6B6B" />
+            <Text style={[styles.contextMenuText, { color: "#FF6B6B" }]}>Delete conversation</Text>
           </TouchableOpacity>
         </View>
       </TouchableOpacity>
     </Modal>
   )
 
-  const renderMessageItem = ({ item }) => (
-    <TouchableOpacity 
+  const renderMessageItem = ({ item, index }) => (
+    <Animated.View 
       style={[
-        styles.messageItem,
-        item.unreadCount > 0 && styles.unreadMessageItem
-      ]} 
-      onPress={() => handleConversationPress(item)}
-      onLongPress={(event) => handleLongPress(item, event)}
-      delayLongPress={500}
+        { 
+          opacity: fadeAnim,
+          transform: [{
+            translateY: fadeAnim.interpolate({
+              inputRange: [0, 1],
+              outputRange: [50, 0]
+            })
+          }]
+        }
+      ]}
     >
-      <View style={styles.avatarContainer}>
-        <View style={styles.avatar}>
-          <Ionicons 
-            name="person" 
-            size={24} 
-            color="#004C9C"
-          />
+      <TouchableOpacity 
+        style={[
+          styles.messageItem,
+          item.unreadCount > 0 && styles.unreadMessageItem
+        ]} 
+        onPress={() => handleConversationPress(item)}
+        onLongPress={(event) => handleLongPress(item, event)}
+        delayLongPress={500}
+        activeOpacity={0.95}
+      >
+        <View style={styles.avatarContainer}>
+          <LinearGradient
+            colors={[item.avatarColor || "#4ECDC4", item.avatarColor ? `${item.avatarColor}AA` : "#4ECDC4AA"]}
+            style={styles.avatar}
+          >
+            <Ionicons 
+              name="person" 
+              size={26} 
+              color="#FFFFFF"
+            />
+          </LinearGradient>
         </View>
-      </View>
 
-      <View style={styles.messageContent}>
-        <View style={styles.messageHeader}>
-          <View style={styles.nameContainer}>
-            <Text style={[
-              styles.contactName,
-              item.unreadCount > 0 && styles.unreadContactName
-            ]}>
-              {item.name}
-            </Text>
-            <View style={[
-              styles.statusTag,
-              { backgroundColor: item.status === "Available" ? "#4CAF50" : item.status === "Busy" ? "#FF9800" : "#999" }
-            ]}>
-              <Text style={styles.statusTagText}>{item.status || "Offline"}</Text>
+        <View style={styles.messageContent}>
+          <View style={styles.messageHeader}>
+            <View style={styles.nameContainer}>
+              <Text style={[
+                styles.contactName,
+                item.unreadCount > 0 && styles.unreadContactName
+              ]}>
+                {item.name}
+              </Text>
+            </View>
+            <View style={styles.timeContainer}>
+              <Text style={styles.messageTime}>
+                {formatTime(item.time)}
+              </Text>
+              {item.unreadCount > 0 && (
+                <LinearGradient
+                  colors={['#6B73FF', '#9C88FF']}
+                  style={styles.unreadBadge}
+                >
+                  <Text style={styles.unreadCount}>{item.unreadCount}</Text>
+                </LinearGradient>
+              )}
             </View>
           </View>
-          <View style={styles.timeContainer}>
-            <Text style={styles.messageTime}>
-              {formatTime(item.time)}
-            </Text>
-            {item.unreadCount > 0 && (
-              <View style={styles.unreadBadge}>
-                <Text style={styles.unreadCount}>{item.unreadCount}</Text>
+          <Text 
+            style={[
+              styles.messagePreview,
+              item.unreadCount > 0 && styles.unreadMessagePreview
+            ]} 
+            numberOfLines={2}
+          >
+            {item.lastMessage}
+          </Text>
+          <View style={styles.specialtyContainer}>
+            {item.specialty && (
+              <View style={styles.specialtyBadge}>
+                <Ionicons name="medical" size={12} color="#3B82F6" />
+                <Text style={styles.specialtyText}>{item.specialty}</Text>
               </View>
             )}
           </View>
         </View>
-        <Text 
-          style={[
-            styles.messagePreview,
-            item.unreadCount > 0 && styles.unreadMessagePreview
-          ]} 
-          numberOfLines={2}
-        >
-          {item.lastMessage}
-        </Text>
-        <View style={styles.specialtyContainer}>
-          {item.specialty && (
-            <Text style={styles.specialtyText}>{item.specialty}</Text>
-          )}
+        
+        <View style={styles.chevronContainer}>
+          <Ionicons name="chevron-forward" size={20} color="#D1D9FF" />
         </View>
-      </View>
-    </TouchableOpacity>
+      </TouchableOpacity>
+    </Animated.View>
   )
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case "Available": return "#10B981"
+      case "Busy": return "#F59E0B"
+      default: return "#9CA3AF"
+    }
+  }
 
   const renderEmptyState = () => (
     <View style={styles.emptyContainer}>
-      <Ionicons name="chatbubbles-outline" size={64} color="#ccc" />
+      <LinearGradient
+        colors={['#6B73FF20', '#9C88FF20']}
+        style={styles.emptyIconContainer}
+      >
+        <Ionicons name="chatbubbles-outline" size={64} color="#6B73FF" />
+      </LinearGradient>
       <Text style={styles.emptyTitle}>No messages yet</Text>
       <Text style={styles.emptySubtitle}>
-        Start a conversation with our doctors
+        Start a conversation with our experienced dental professionals
       </Text>
-      <TouchableOpacity 
-        style={styles.startChatButton}
-        onPress={() => handleConversationPress(conversations[0])}
-      >
-        <Text style={styles.startChatButtonText}>Start Chat with Dr. Jessica</Text>
-      </TouchableOpacity>
-      <TouchableOpacity 
-        style={[styles.startChatButton, styles.secondaryButton]}
-        onPress={() => handleConversationPress(conversations[1])}
-      >
-        <Text style={[styles.startChatButtonText, styles.secondaryButtonText]}>Start Chat with Jane Sy</Text>
-      </TouchableOpacity>
+      
+      <View style={styles.doctorCardsContainer}>
+        {conversations.map((doctor, index) => (
+          <TouchableOpacity 
+            key={doctor.id}
+            style={styles.doctorCard}
+            onPress={() => handleConversationPress(doctor)}
+          >
+            <LinearGradient
+              colors={[doctor.avatarColor || "#4ECDC4", `${doctor.avatarColor || "#4ECDC4"}80`]}
+              style={styles.doctorAvatar}
+            >
+              <Ionicons name="person" size={24} color="#FFFFFF" />
+            </LinearGradient>
+            <View style={styles.doctorInfo}>
+              <Text style={styles.doctorName}>{doctor.name}</Text>
+              <Text style={styles.doctorSpecialty}>{doctor.specialty}</Text>
+              <View style={[styles.doctorStatus, { backgroundColor: getStatusColor(doctor.status) }]}>
+                <Text style={styles.doctorStatusText}>{doctor.status}</Text>
+              </View>
+            </View>
+            <Ionicons name="arrow-forward" size={20} color="#6B73FF" />
+          </TouchableOpacity>
+        ))}
+      </View>
     </View>
   )
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>
-          Messages {getTotalUnreadCount() > 0 && `(${getTotalUnreadCount()})`}
-        </Text>
-        <TouchableOpacity style={styles.headerButton}>
-          <Ionicons name="search" size={24} color="#E91E63" />
-        </TouchableOpacity>
-      </View>
+      <LinearGradient
+        colors={['#FFFFFF', '#F8FAFF']}
+        style={styles.header}
+      >
+        <View style={styles.headerContent}>
+          <View style={styles.headerLeft}>
+            <Text style={styles.headerTitle}>
+              Messages
+            </Text>
+            {getTotalUnreadCount() > 0 && (
+              <LinearGradient
+                colors={['#FF6B6B', '#FF8E8E']}
+                style={styles.headerBadge}
+              >
+                <Text style={styles.headerBadgeText}>{getTotalUnreadCount()}</Text>
+              </LinearGradient>
+            )}
+          </View>
+          <TouchableOpacity style={styles.headerButton}>
+            <LinearGradient
+              colors={['#6B73FF10', '#9C88FF10']}
+              style={styles.headerButtonGradient}
+            >
+              <Ionicons name="search" size={22} color="#6B73FF" />
+            </LinearGradient>
+          </TouchableOpacity>
+        </View>
+      </LinearGradient>
 
       {conversations.length > 0 ? (
         <FlatList
@@ -404,6 +482,7 @@ const MessagesScreen = ({ navigation }) => {
           keyExtractor={(item) => item.id}
           style={styles.messagesList}
           showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.messagesListContent}
         />
       ) : (
         renderEmptyState()
@@ -417,69 +496,109 @@ const MessagesScreen = ({ navigation }) => {
   )
 }
 
+const getStatusColor = (status) => {
+  switch (status) {
+    case "Available": return "#10B981"
+    case "Busy": return "#F59E0B"
+    default: return "#9CA3AF"
+  }
+}
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#FFF6F0",
+    backgroundColor: "#F8FAFF",
   },
   header: {
     paddingHorizontal: 20,
-    paddingVertical: 15,
+    paddingTop: 15,
+    paddingBottom: 20,
     borderBottomWidth: 1,
-    borderBottomColor: "rgba(0,0,0,0.05)",
-    marginTop: 30,
+    borderBottomColor: "rgba(107, 115, 255, 0.1)",
+  },
+  headerContent: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    backgroundColor: "#FFFFFF",
+  },
+  headerLeft: {
+    flexDirection: "row",
+    alignItems: "center",
   },
   headerTitle: {
-    fontSize: 24,
-    fontWeight: "bold",
-    color: "#000",
+    fontSize: 28,
+    fontWeight: "800",
+    color: "#1F2937",
+    marginRight: 12,
+  },
+  headerBadge: {
+    borderRadius: 12,
+    minWidth: 24,
+    height: 24,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 8,
+  },
+  headerBadgeText: {
+    color: "#FFFFFF",
+    fontSize: 12,
+    fontWeight: "700",
   },
   headerButton: {
-    padding: 8,
+    overflow: "hidden",
+    borderRadius: 12,
+  },
+  headerButtonGradient: {
+    padding: 12,
+    borderRadius: 12,
   },
   messagesList: {
     flex: 1,
   },
+  messagesListContent: {
+    paddingTop: 8,
+  },
   messageItem: {
     flexDirection: "row",
     paddingHorizontal: 20,
-    paddingVertical: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: "rgba(0,0,0,0.05)",
+    paddingVertical: 16,
     backgroundColor: "#FFFFFF",
+    marginHorizontal: 16,
+    marginVertical: 4,
+    borderRadius: 16,
+    shadowColor: "#3B82F6",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
   },
   unreadMessageItem: {
-    backgroundColor: "#FFF9F9",
+    backgroundColor: "#F0F4FF",
+    borderLeftWidth: 4,
+    borderLeftColor: "#3B82F6",
+    shadowOpacity: 0.15,
   },
   avatarContainer: {
     position: "relative",
-    marginRight: 15,
+    marginRight: 16,
   },
   avatar: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: "#E3F2FD",
+    width: 54,
+    height: 54,
+    borderRadius: 27,
     justifyContent: "center",
     alignItems: "center",
-  },
-  offlineAvatar: {
-    backgroundColor: "#f0f0f0",
-  },
-  onlineIndicator: {
-    position: "absolute",
-    bottom: 2,
-    right: 2,
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    backgroundColor: "#4CAF50",
-    borderWidth: 2,
-    borderColor: "#FFFFFF",
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   messageContent: {
     flex: 1,
@@ -488,30 +607,33 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-start",
-    marginBottom: 5,
+    marginBottom: 6,
   },
   nameContainer: {
     flexDirection: "row",
     alignItems: "center",
     flex: 1,
+    marginRight: 12,
   },
   contactName: {
     fontSize: 18,
-    fontWeight: "600",
-    color: "#000",
+    fontWeight: "700",
+    color: "#1F2937",
+    marginRight: 8,
   },
   unreadContactName: {
-    fontWeight: "700",
+    color: "#3B82F6",
   },
   statusTag: {
-    borderRadius: 10,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    marginLeft: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
   },
   statusTagText: {
     color: "#FFFFFF",
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: "600",
   },
   timeContainer: {
@@ -519,118 +641,171 @@ const styles = StyleSheet.create({
   },
   messageTime: {
     fontSize: 12,
-    color: "#666",
+    color: "#9CA3AF",
     marginBottom: 4,
+    fontWeight: "500",
   },
   unreadBadge: {
-    backgroundColor: "#E91E63",
-    borderRadius: 10,
-    minWidth: 20,
-    height: 20,
+    borderRadius: 12,
+    minWidth: 22,
+    height: 22,
     justifyContent: "center",
     alignItems: "center",
-    paddingHorizontal: 6,
+    paddingHorizontal: 8,
   },
   unreadCount: {
     color: "#FFFFFF",
-    fontSize: 12,
-    fontWeight: "600",
+    fontSize: 11,
+    fontWeight: "700",
   },
   messagePreview: {
-    fontSize: 14,
-    color: "#666",
-    lineHeight: 20,
+    fontSize: 15,
+    color: "#6B7280",
+    lineHeight: 22,
+    marginBottom: 6,
   },
   unreadMessagePreview: {
-    color: "#333",
+    color: "#374151",
     fontWeight: "500",
   },
   specialtyContainer: {
     flexDirection: "row",
     alignItems: "center",
-    marginTop: 2,
+  },
+  specialtyBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#EEF2FF",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
   },
   specialtyText: {
     fontSize: 12,
-    color: "#666",
-    fontWeight: "400",
+    color: "#3B82F6",
+    fontWeight: "600",
+    marginLeft: 4,
+  },
+  chevronContainer: {
+    justifyContent: "center",
+    marginLeft: 8,
   },
   emptyContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    paddingHorizontal: 40,
+    paddingHorizontal: 32,
+  },
+  emptyIconContainer: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 24,
   },
   emptyTitle: {
-    fontSize: 20,
-    fontWeight: "600",
-    color: "#000",
-    marginTop: 16,
+    fontSize: 24,
+    fontWeight: "800",
+    color: "#1F2937",
     marginBottom: 8,
   },
   emptySubtitle: {
-    fontSize: 14,
-    color: "#666",
-    textAlign: "center",
-    lineHeight: 20,
-    marginBottom: 24,
-  },
-  startChatButton: {
-    backgroundColor: "#E91E63",
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 25,
-    marginBottom: 12,
-  },
-  startChatButtonText: {
-    color: "#FFFFFF",
     fontSize: 16,
+    color: "#6B7280",
+    textAlign: "center",
+    lineHeight: 24,
+    marginBottom: 32,
+  },
+  doctorCardsContainer: {
+    width: "100%",
+  },
+  doctorCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FFFFFF",
+    padding: 20,
+    borderRadius: 16,
+    marginBottom: 12,
+    shadowColor: "#6B73FF",
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 4,
+  },
+  doctorAvatar: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 16,
+  },
+  doctorInfo: {
+    flex: 1,
+  },
+  doctorName: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#1F2937",
+    marginBottom: 4,
+  },
+  doctorSpecialty: {
+    fontSize: 14,
+    color: "#6B7280",
+    marginBottom: 6,
+  },
+  doctorStatus: {
+    alignSelf: "flex-start",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  doctorStatusText: {
+    color: "#FFFFFF",
+    fontSize: 11,
     fontWeight: "600",
-  },
-  secondaryButton: {
-    backgroundColor: "transparent",
-    borderWidth: 2,
-    borderColor: "#E91E63",
-  },
-  secondaryButtonText: {
-    color: "#E91E63",
   },
   // Context Menu Styles
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.1)',
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
   },
   contextMenu: {
     position: 'absolute',
     backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    paddingVertical: 8,
-    minWidth: 160,
+    borderRadius: 16,
+    paddingVertical: 12,
+    minWidth: 180,
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
-      height: 2,
+      height: 8,
     },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 8,
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
+    elevation: 12,
   },
   contextMenuItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: 20,
+    paddingVertical: 14,
   },
   contextMenuText: {
     fontSize: 16,
-    color: '#333',
+    color: '#374151',
     marginLeft: 12,
-    fontWeight: '500',
+    fontWeight: '600',
   },
   contextMenuSeparator: {
     height: 1,
-    backgroundColor: '#E0E0E0',
-    marginVertical: 4,
+    backgroundColor: '#F3F4F6',
+    marginVertical: 8,
+    marginHorizontal: 12,
   },
 })
 

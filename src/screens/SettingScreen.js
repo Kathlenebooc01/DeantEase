@@ -108,6 +108,10 @@ export default function SettingsScreen({ navigation }) {
     console.log("Menu pressed:", menuItem)
     if (menuItem === "Account") {
       navigation?.navigate("AccountSettings");
+    } else if (menuItem === "Notifications") {
+      navigation?.navigate("NotificationScreen");
+    } else if (menuItem === "ContactSupport") {
+      navigation?.navigate("ContactUs");
     }
   }
 

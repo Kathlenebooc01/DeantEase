@@ -1,39 +1,48 @@
 import React, { useEffect, useRef } from 'react';
-import { View, Image, StyleSheet, SafeAreaView, Animated, TouchableWithoutFeedback } from 'react-native';
+import { View, Image, StyleSheet, SafeAreaView, Animated } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 
 export default function Opening({ navigation }) {
+  // Use a ref to hold the Animated.Value for opacity.
   const logoOpacity = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    const timer = setTimeout(() => {
+    // Start the animation after 1.5 seconds.
+    const animationTimer = setTimeout(() => {
       Animated.timing(logoOpacity, {
         toValue: 1,
         duration: 1000,
         useNativeDriver: true,
-      }).start();
+      }).start(() => {
+        // After the animation finishes (1 second), automatically navigate.
+        navigation.navigate('GetStarted');
+      });
     }, 1500);
-    return () => clearTimeout(timer);
-  }, []);
+
+    // Clean up the timer to prevent memory leaks if the component unmounts.
+    return () => clearTimeout(animationTimer);
+  }, [navigation, logoOpacity]);
 
   return (
-    <TouchableWithoutFeedback onPress={() => navigation.navigate('GetStarted')}>
-      <SafeAreaView style={styles.container}>
-        <StatusBar style="light" />
-        <View style={styles.inner}>
-          <Image
-            source={require('../../assets/opening/tooth.png')}
-            style={styles.tooth}
-            resizeMode="contain"
-          />
-          <Animated.Image
-            source={require('../../assets/opening/logo.png')}
-            style={[styles.logo, { opacity: logoOpacity }]}
-            resizeMode="contain"
-          />
-        </View>
-      </SafeAreaView>
-    </TouchableWithoutFeedback>
+    <SafeAreaView style={styles.container}>
+      <StatusBar style="light" />
+      <View style={styles.inner}>
+        {/*
+          Using `require` for local assets, so we can't show a live preview.
+          The `tooth.png` image is a placeholder for your actual asset.
+        */}
+        <Image
+          source={require('../../assets/opening/tooth.png')}
+          style={styles.tooth}
+          resizeMode="contain"
+        />
+        <Animated.Image
+          source={require('../../assets/opening/logo.png')}
+          style={[styles.logo, { opacity: logoOpacity }]}
+          resizeMode="contain"
+        />
+      </View>
+    </SafeAreaView>
   );
 }
 
