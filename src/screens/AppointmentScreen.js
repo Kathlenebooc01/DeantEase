@@ -286,20 +286,19 @@ const AppointmentScreen = ({ navigation }) => {
         return;
       }
 
-      const appointmentData = {
-        userId: currentUser.uid,
-        // ✅ CORRECTED: Use the user's display name from Firebase Auth
-        userName: currentUser.displayName || 'User',
-        userEmail: currentUser.email,
-        date: selectedDate.toISOString(),
-        time: selectedTime,
-        services: selectedServices,
-        doctor: 'Dr. Jessicca Fano',
-        status: 'confirmed',
-        createdAt: serverTimestamp(),
-        appointmentDate: selectedDate.toLocaleDateString('en-US'),
-        endTime: getEndTime(selectedTime)
-      };
+ const appointmentData = {
+  userId: currentUser.uid,
+  userName: currentUser.displayName || 'User',
+  userEmail: currentUser.email,
+  date: selectedDate.toISOString(),
+  time: selectedTime,
+  services: selectedServices,
+  doctor: 'Dr. Jessicca Fano',
+  status: 'pending', // ✅ This is correct
+  createdAt: serverTimestamp(),
+  appointmentDate: selectedDate.toLocaleDateString('en-US'),
+  endTime: getEndTime(selectedTime)
+};
 
       const result = await saveAppointmentToFirebase(appointmentData);
 

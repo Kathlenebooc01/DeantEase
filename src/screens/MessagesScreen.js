@@ -11,34 +11,38 @@ const MessagesScreen = ({ navigation }) => {
   const [selectedConversation, setSelectedConversation] = useState(null)
   const [menuPosition, setMenuPosition] = useState({ x: 0, y: 0 })
   
-  // Initialize conversations data
+  // Initialize conversations data with real doctors
   const initializeConversations = () => {
     const initialConversations = [
       {
         id: "dr-jessica",
         name: "Dr. Jessica",
-        lastMessage: "Hello! I'm Dr. Jessica's AI assistant. How can I help you with your dental care today?",
+        lastMessage: "Welcome! You can send messages to Dr. Jessica. They are currently online and will respond soon.",
         time: getCurrentTime(),
-        unreadCount: 1,
-        isAI: true,
-        avatar: "chatbubbles",
+        unreadCount: 0, // Start with 0 since it's just a welcome message
+        isAI: false,
+        avatar: "person",
         isOnline: true,
+        specialty: "General Dentistry",
+        status: "Available",
       },
       {
         id: "jane-sy",
         name: "Jane Sy",
-        lastMessage: "Hello! I'm Jane Sy's AI assistant. How can I help you with your dental care today?",
+        lastMessage: "Welcome! You can send messages to Jane Sy. They are currently online and will respond soon.",
         time: getCurrentTime(),
-        unreadCount: 1,
-        isAI: true,
-        avatar: "chatbubbles",
-        isOnline: true,
+        unreadCount: 0, // Start with 0 since it's just a welcome message
+        isAI: false,
+        avatar: "person",
+        isOnline: Math.random() > 0.5, // Random online status for demo
+        specialty: "Pediatric Dentistry",
+        status: Math.random() > 0.5 ? "Available" : "Busy",
       },
     ]
     return initialConversations
   }
 
-  // Force reset conversations (for development/testing) - can be called manually if needed
+  // Force reset conversations (for development/testing)
   const resetConversations = async () => {
     try {
       await AsyncStorage.removeItem('conversations')
@@ -133,7 +137,7 @@ const MessagesScreen = ({ navigation }) => {
     })
   }
 
-  // NEW: Handle long press
+  // Handle long press for context menu
   const handleLongPress = (item, event) => {
     const { pageX, pageY } = event.nativeEvent
     setSelectedConversation(item)
@@ -141,7 +145,7 @@ const MessagesScreen = ({ navigation }) => {
     setShowContextMenu(true)
   }
 
-  // NEW: Mark as unread
+  // Mark as unread
   const markAsUnread = async () => {
     if (!selectedConversation) return
     
@@ -163,7 +167,7 @@ const MessagesScreen = ({ navigation }) => {
     }
   }
 
-  // NEW: Delete conversation
+  // Delete conversation
   const deleteConversation = () => {
     if (!selectedConversation) return
     
@@ -187,14 +191,14 @@ const MessagesScreen = ({ navigation }) => {
               // Remove chat messages from storage
               await AsyncStorage.removeItem(`chat_${selectedConversation.id}`)
               
-              // Reset conversation to initial greeting
+              // Reset conversation to initial state without welcome message
               const updatedConversations = conversations.map(conv => 
                 conv.id === selectedConversation.id 
                   ? { 
                       ...conv, 
-                      lastMessage: `Hello! I'm ${conv.name}'s AI assistant. How can I help you with your dental care today?`,
+                      lastMessage: conv.id === "dr-jessica" ? "At Fano Dental Clinic, we offer..." : "Tap to start conversation",
                       time: getCurrentTime(),
-                      unreadCount: 1
+                      unreadCount: 0
                     }
                   : conv
               )
@@ -259,7 +263,7 @@ const MessagesScreen = ({ navigation }) => {
     }
   }
 
-  // NEW: Context Menu Component
+  // Context Menu Component
   const ContextMenu = () => (
     <Modal
       transparent={true}
@@ -306,17 +310,13 @@ const MessagesScreen = ({ navigation }) => {
       delayLongPress={500}
     >
       <View style={styles.avatarContainer}>
-        <View style={[
-          styles.avatar,
-          item.isAI && styles.aiAvatar
-        ]}>
+        <View style={styles.avatar}>
           <Ionicons 
-            name={item.avatar} 
+            name="person" 
             size={24} 
-            color={item.isAI ? "#4CAF50" : "#666"} 
+            color="#004C9C"
           />
         </View>
-        {item.isOnline && <View style={styles.onlineIndicator} />}
       </View>
 
       <View style={styles.messageContent}>
@@ -328,11 +328,12 @@ const MessagesScreen = ({ navigation }) => {
             ]}>
               {item.name}
             </Text>
-            {item.isAI && (
-              <View style={styles.aiTag}>
-                <Text style={styles.aiTagText}>AI</Text>
-              </View>
-            )}
+            <View style={[
+              styles.statusTag,
+              { backgroundColor: item.status === "Available" ? "#4CAF50" : item.status === "Busy" ? "#FF9800" : "#999" }
+            ]}>
+              <Text style={styles.statusTagText}>{item.status || "Offline"}</Text>
+            </View>
           </View>
           <View style={styles.timeContainer}>
             <Text style={styles.messageTime}>
@@ -354,14 +355,11 @@ const MessagesScreen = ({ navigation }) => {
         >
           {item.lastMessage}
         </Text>
-        {item.isAI && item.isOnline && (
-          <View style={styles.specialtyContainer}>
-            <Text style={styles.statusText}>Available now</Text>
-            {item.specialty && (
-              <Text style={styles.specialtyText}>• {item.specialty}</Text>
-            )}
-          </View>
-        )}
+        <View style={styles.specialtyContainer}>
+          {item.specialty && (
+            <Text style={styles.specialtyText}>{item.specialty}</Text>
+          )}
+        </View>
       </View>
     </TouchableOpacity>
   )
@@ -371,7 +369,7 @@ const MessagesScreen = ({ navigation }) => {
       <Ionicons name="chatbubbles-outline" size={64} color="#ccc" />
       <Text style={styles.emptyTitle}>No messages yet</Text>
       <Text style={styles.emptySubtitle}>
-        Start a conversation with our AI assistants
+        Start a conversation with our doctors
       </Text>
       <TouchableOpacity 
         style={styles.startChatButton}
@@ -392,7 +390,7 @@ const MessagesScreen = ({ navigation }) => {
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>
-          Inbox {getTotalUnreadCount() > 0 && `(${getTotalUnreadCount()})`}
+          Messages {getTotalUnreadCount() > 0 && `(${getTotalUnreadCount()})`}
         </Text>
         <TouchableOpacity style={styles.headerButton}>
           <Ionicons name="search" size={24} color="#E91E63" />
@@ -443,10 +441,6 @@ const styles = StyleSheet.create({
   headerButton: {
     padding: 8,
   },
-  headerActions: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
   messagesList: {
     flex: 1,
   },
@@ -469,12 +463,12 @@ const styles = StyleSheet.create({
     width: 50,
     height: 50,
     borderRadius: 25,
-    backgroundColor: "#f0f0f0",
+    backgroundColor: "#E3F2FD",
     justifyContent: "center",
     alignItems: "center",
   },
-  aiAvatar: {
-    backgroundColor: "#E8F5E8",
+  offlineAvatar: {
+    backgroundColor: "#f0f0f0",
   },
   onlineIndicator: {
     position: "absolute",
@@ -509,14 +503,13 @@ const styles = StyleSheet.create({
   unreadContactName: {
     fontWeight: "700",
   },
-  aiTag: {
-    backgroundColor: "#4CAF50",
+  statusTag: {
     borderRadius: 10,
     paddingHorizontal: 6,
     paddingVertical: 2,
     marginLeft: 8,
   },
-  aiTagText: {
+  statusTagText: {
     color: "#FFFFFF",
     fontSize: 10,
     fontWeight: "600",
@@ -552,11 +545,6 @@ const styles = StyleSheet.create({
     color: "#333",
     fontWeight: "500",
   },
-  statusText: {
-    fontSize: 12,
-    color: "#4CAF50",
-    fontWeight: "500",
-  },
   specialtyContainer: {
     flexDirection: "row",
     alignItems: "center",
@@ -564,9 +552,8 @@ const styles = StyleSheet.create({
   },
   specialtyText: {
     fontSize: 12,
-    color: "#4CAF50",
+    color: "#666",
     fontWeight: "400",
-    marginLeft: 4,
   },
   emptyContainer: {
     flex: 1,
@@ -593,6 +580,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 25,
+    marginBottom: 12,
   },
   startChatButtonText: {
     color: "#FFFFFF",
@@ -603,12 +591,11 @@ const styles = StyleSheet.create({
     backgroundColor: "transparent",
     borderWidth: 2,
     borderColor: "#E91E63",
-    marginTop: 12,
   },
   secondaryButtonText: {
     color: "#E91E63",
   },
-  // NEW: Context Menu Styles
+  // Context Menu Styles
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.1)',

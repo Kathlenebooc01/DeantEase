@@ -54,14 +54,15 @@ export default function ViewAppointmentScreen({ navigation }) {
             date: appointmentDate,
           };
 
-          // Updated Logic: Categorize appointments based on status
-          // An appointment is 'past' only if its status is 'finished'.
-          // All other confirmed appointments are considered 'future'.
+          // Updated Logic: 
+          // Past appointments: status is 'finished'
+          // Future appointments: status is 'approved' (confirmed by admin) or 'pending' (waiting for admin approval)
           if (data.status === 'finished') {
             past.push(appointmentData);
-          } else if (data.status === 'confirmed') {
+          } else if (data.status === 'approved' || data.status === 'pending') {
             future.push(appointmentData);
           }
+          // Note: 'declined' appointments are excluded from both lists
         }
       });
 
@@ -82,7 +83,6 @@ export default function ViewAppointmentScreen({ navigation }) {
     return () => unsubscribe();
   }, [currentUser]);
 
-
   const handleBackPress = () => {
     if (navigation) {
       navigation.goBack();
@@ -91,7 +91,7 @@ export default function ViewAppointmentScreen({ navigation }) {
     }
   };
 
-  // New function to handle finishing the appointment without navigation
+  // Function to handle finishing the appointment without navigation
   const handleFinishOnly = async (appointmentId) => {
     try {
       const appointmentRef = doc(db, 'appointments', appointmentId);
@@ -105,7 +105,7 @@ export default function ViewAppointmentScreen({ navigation }) {
     }
   };
 
-  // New function to handle finishing the appointment and navigating
+  // Function to handle finishing the appointment and navigating
   const handleFinishAndNavigate = async (appointmentId) => {
     try {
       const appointmentRef = doc(db, 'appointments', appointmentId);
@@ -122,7 +122,7 @@ export default function ViewAppointmentScreen({ navigation }) {
     }
   };
 
-  // New function to show the confirmation pop-up
+  // Function to show the confirmation pop-up
   const confirmFinish = (appointmentId) => {
     Alert.alert(
       "Confirm Finish",
@@ -187,6 +187,27 @@ export default function ViewAppointmentScreen({ navigation }) {
     return appointments.map((appointment) => {
       // Format services list
       const servicesList = appointment.services ? appointment.services.join(', ') : 'General Consultation';
+      
+      // Get the current date and time
+      const now = new Date();
+      
+      // Parse the appointment time and set it to the appointment date
+      const [time, period] = appointment.time.split(' ');
+      let [hours, minutes] = time.split(':');
+      hours = parseInt(hours);
+      minutes = parseInt(minutes);
+
+      if (period === 'PM' && hours !== 12) {
+          hours += 12;
+      } else if (period === 'AM' && hours === 12) {
+          hours = 0;
+      }
+      
+      const appointmentDateTime = new Date(appointment.date);
+      appointmentDateTime.setHours(hours, minutes, 0, 0);
+
+      // Check if the current time is after the appointment's scheduled time
+      const isAppointmentInThePast = now > appointmentDateTime;
 
       return (
         <View key={appointment.id} style={styles.appointmentCard}>
@@ -227,12 +248,19 @@ export default function ViewAppointmentScreen({ navigation }) {
 
             {activeTab === 'future' && (
               <View style={styles.buttonContainer}>
-                <TouchableOpacity
-                  style={styles.finishButton}
-                  onPress={() => confirmFinish(appointment.id)}
-                >
-                  <Text style={styles.finishButtonText}>Finish</Text>
-                </TouchableOpacity>
+                {appointment.status === 'pending' ? (
+                  <View style={styles.pendingBadge}>
+                    <Text style={styles.pendingText}>Waiting for Approval</Text>
+                  </View>
+                ) : appointment.status === 'approved' ? (
+                  <TouchableOpacity
+                    style={[styles.finishButton, !isAppointmentInThePast && styles.disabledButton]}
+                    onPress={() => confirmFinish(appointment.id)}
+                    disabled={!isAppointmentInThePast}
+                  >
+                    <Text style={styles.finishButtonText}>Finish</Text>
+                  </TouchableOpacity>
+                ) : null}
               </View>
             )}
 
@@ -375,7 +403,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 15,
   },
   scrollViewContent: {
-    paddingBottom: 120, // This is the key change
+    paddingBottom: 120,
   },
   appointmentCard: {
     backgroundColor: "#fff",
@@ -477,6 +505,9 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     fontSize: 14,
   },
+  disabledButton: {
+    backgroundColor: "#a0a0a0",
+  },
   statusContainer: {
     alignItems: "flex-end",
     marginTop: 15,
@@ -488,6 +519,17 @@ const styles = StyleSheet.create({
     borderRadius: 15,
   },
   statusText: {
+    color: "#fff",
+    fontWeight: "600",
+    fontSize: 12,
+  },
+  pendingBadge: {
+    backgroundColor: "#FFC107", // Yellow/orange for pending approval
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 15,
+  },
+  pendingText: {
     color: "#fff",
     fontWeight: "600",
     fontSize: 12,

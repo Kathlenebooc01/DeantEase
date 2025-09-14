@@ -123,7 +123,7 @@ export default function Profile({ navigation }) {
     }, [currentUser])
   );
 
-  // FIXED: Updated appointments fetching logic
+  // FIXED: Updated appointments fetching logic to handle admin confirmation
   useEffect(() => {
     if (!currentUser) {
       setIsLoading(false);
@@ -133,34 +133,76 @@ export default function Profile({ navigation }) {
     setIsLoading(true);
 
     const appointmentsRef = collection(db, 'appointments');
+    
+    // First, let's fetch all appointments for this user to debug
     const q = query(
       appointmentsRef,
-      where('userId', '==', currentUser.uid),
-      where('status', '==', 'confirmed'), // Only get confirmed appointments
-      orderBy('createdAt', 'desc')
+      where('userId', '==', currentUser.uid)
+      // Temporarily remove status and orderBy filters to see all appointments
     );
 
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
       const appointments = [];
       const now = new Date();
 
+      console.log("=== DEBUGGING APPOINTMENTS ===");
+      console.log("Total appointments found:", querySnapshot.docs.length);
+
       querySnapshot.forEach((doc) => {
         const data = doc.data();
-        if (data.date) {
+        console.log("Appointment:", {
+          id: doc.id,
+          status: data.status,
+          date: data.date,
+          doctor: data.doctor,
+          services: data.services,
+          time: data.time
+        });
+
+        // Check for multiple possible status values that indicate confirmed appointments
+        const confirmedStatuses = [
+          'confirmed', 
+          'approved', 
+          'accepted', 
+          'booked',
+          'Confirmed', // Check for capitalized versions too
+          'Approved',
+          'Accepted',
+          'Booked'
+        ];
+
+        if (data.date && confirmedStatuses.includes(data.status)) {
           const appointmentDate = new Date(data.date);
           
-          // Only show confirmed appointments (these are considered upcoming)
-          const appointmentData = {
-            id: doc.id,
-            ...data,
-            date: appointmentDate,
-          };
-          appointments.push(appointmentData);
+          // Only show future appointments or appointments from today
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          appointmentDate.setHours(0, 0, 0, 0);
+          
+          if (appointmentDate >= today) {
+            const appointmentData = {
+              id: doc.id,
+              ...data,
+              date: new Date(data.date), // Ensure it's a proper Date object
+            };
+            appointments.push(appointmentData);
+            console.log("Added to upcoming:", appointmentData);
+          } else {
+            console.log("Appointment is in the past:", appointmentDate);
+          }
+        } else {
+          console.log("Appointment not confirmed or missing date:", {
+            status: data.status,
+            hasDate: !!data.date
+          });
         }
       });
 
-      // Sort by appointment date (ascending)
+      // Sort by appointment date (ascending - nearest first)
       appointments.sort((a, b) => a.date - b.date);
+      
+      console.log("Final upcoming appointments:", appointments.length);
+      console.log("=== END DEBUGGING ===");
       
       setUpcomingAppointments(appointments);
       setIsLoading(false);
@@ -236,7 +278,7 @@ export default function Profile({ navigation }) {
             <View style={styles.procedureInfo}>
               <Text style={styles.procedureText}>Procedure</Text>
               <View style={styles.servicesContainer}>
-                {appointment.services.map((service, index) => (
+                {appointment.services && appointment.services.map((service, index) => (
                   <View key={index} style={styles.serviceTag}>
                     <Text style={styles.serviceTagText}>{service}</Text>
                   </View>

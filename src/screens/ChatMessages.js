@@ -1,5 +1,5 @@
 // screens/ChatMessages.js
-import React, { useState, useEffect } from "react"
+import React, { useState, useEffect, useContext } from "react"
 import {
   View,
   Text,
@@ -11,18 +11,29 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
+  Modal,
+  Animated,
+  Image, // Import Image component
 } from "react-native"
 import { Ionicons } from "@expo/vector-icons"
-import { getAIResponse, needsDoctorAttention, getDrJessicaGreeting, getJaneSyGreeting } from "../../services/aiService"
 import AsyncStorage from '@react-native-async-storage/async-storage'
+import { UserContext } from '../context/UserContext' // Import UserContext
 
 const ChatMessages = ({ navigation, route }) => {
   const { contact, onUpdateLastMessage } = route.params
   const [inputText, setInputText] = useState("")
   const [isTyping, setIsTyping] = useState(false)
   const [messages, setMessages] = useState([])
+  const [doctorOnlineStatus, setDoctorOnlineStatus] = useState(true) // Simulate online status
+  
+  // Use UserContext to get user profile data
+  const { userProfile } = useContext(UserContext)
+  
+  // Pop-up notification states
+  const [showPopup, setShowPopup] = useState(false)
+  const [popupOpacity] = useState(new Animated.Value(0))
 
-  // Load existing messages and initialize with greeting if first time
+  // Load existing messages and initialize if first time
   useEffect(() => {
     loadMessages()
   }, [contact.id])
@@ -31,10 +42,8 @@ const ChatMessages = ({ navigation, route }) => {
   useEffect(() => {
     if (messages.length > 0) {
       saveMessagesToStorage()
-      // Update the parent screen with the last message
       const lastMessage = messages[messages.length - 1]
-      if (lastMessage && onUpdateLastMessage) {
-        console.log('Updating parent with last message:', lastMessage.text)
+      if (lastMessage && !lastMessage.isSystemMessage && onUpdateLastMessage) {
         onUpdateLastMessage(contact.id, lastMessage.text, lastMessage.time)
       }
     }
@@ -45,37 +54,28 @@ const ChatMessages = ({ navigation, route }) => {
       const storedMessages = await AsyncStorage.getItem(`chat_${contact.id}`)
       
       if (storedMessages) {
-        // Load existing messages
         const parsedMessages = JSON.parse(storedMessages)
-        console.log(`Loaded ${parsedMessages.length} messages for ${contact.id}`)
         setMessages(parsedMessages)
       } else {
-        // Initialize with greeting for first time
-        const greeting = getGreetingForContact(contact)
         const initialMessage = {
-          id: "greeting_1",
-          text: greeting.message,
+          id: "welcome_1",
+          text: `Welcome! You can send messages to ${contact.name}. ${doctorOnlineStatus ? "They are currently online and will respond soon." : "They will respond when they're available."}`,
           time: getCurrentTime(),
           isFromUser: false,
-          sender: "AI Assistant",
-          showButtons: greeting.showButtons,
-          buttons: greeting.buttons,
+          sender: contact.name,
+          isSystemMessage: true,
         }
-        console.log(`Initializing chat for ${contact.id} with greeting`)
         setMessages([initialMessage])
       }
     } catch (error) {
       console.error('Error loading messages:', error)
-      // Fallback to greeting if loading fails
-      const greeting = getGreetingForContact(contact)
       const initialMessage = {
-        id: "greeting_1",
-        text: greeting.message,
+        id: "welcome_1",
+        text: `Welcome! You can send messages to ${contact.name}. ${doctorOnlineStatus ? "They are currently online and will respond soon." : "They will respond when they're available."}`,
         time: getCurrentTime(),
         isFromUser: false,
-        sender: "AI Assistant",
-        showButtons: greeting.showButtons,
-        buttons: greeting.buttons,
+        sender: contact.name,
+        isSystemMessage: true,
       }
       setMessages([initialMessage])
     }
@@ -84,32 +84,8 @@ const ChatMessages = ({ navigation, route }) => {
   const saveMessagesToStorage = async () => {
     try {
       await AsyncStorage.setItem(`chat_${contact.id}`, JSON.stringify(messages))
-      console.log(`Saved ${messages.length} messages for ${contact.id}`)
     } catch (error) {
       console.error('Error saving messages:', error)
-    }
-  }
-
-  const getGreetingForContact = (contact) => {
-    if (contact.id === "dr-jessica") {
-      return getDrJessicaGreeting ? getDrJessicaGreeting() : getDefaultGreeting()
-    } else if (contact.id === "jane-sy") {
-      return getJaneSyGreeting ? getJaneSyGreeting() : getDefaultGreeting()
-    } else {
-      return getDefaultGreeting()
-    }
-  }
-
-  const getDefaultGreeting = () => {
-    return {
-      message: `Hello! I'm ${contact.name}'s AI assistant. How can I help you with your dental care today?`,
-      showButtons: true,
-      buttons: [
-        { text: "Book an appointment", value: "I would like to book an appointment" },
-        { text: "Ask about services", value: "What dental services do you offer?" },
-        { text: "Emergency help", value: "I have a dental emergency" },
-        { text: "General question", value: "I have a general question" }
-      ]
     }
   }
 
@@ -122,71 +98,30 @@ const ChatMessages = ({ navigation, route }) => {
     })
   }
 
-  // Handle button clicks
-  const handleButtonClick = async (buttonValue) => {
-    console.log('Button clicked:', buttonValue)
+  const showPopupNotification = () => {
+    setShowPopup(true)
     
-    // Add user message showing which button was clicked
-    const userMessage = {
-      id: Date.now().toString(),
-      text: buttonValue,
-      time: getCurrentTime(),
-      isFromUser: true,
-      sender: "You",
-    }
+    Animated.timing(popupOpacity, {
+      toValue: 1,
+      duration: 300,
+      useNativeDriver: true,
+    }).start()
 
-    // Add user message first
-    setMessages(prev => {
-      const newMessages = [...prev, userMessage]
-      console.log('Added user message via button click')
-      return newMessages
-    })
-
-    setIsTyping(true)
-
-    try {
-      // Small delay to make it feel more natural
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      
-      let aiResponse = await getAIResponseSafely(buttonValue, contact.id)
-      
-      const aiMessage = {
-        id: (Date.now() + 1).toString(),
-        text: aiResponse,
-        time: getCurrentTime(),
-        isFromUser: false,
-        sender: "AI Assistant",
-      }
-      
-      // Add AI response
-      setMessages(prev => {
-        const newMessages = [...prev, aiMessage]
-        console.log('Added AI response via button click')
-        return newMessages
+    setTimeout(() => {
+      Animated.timing(popupOpacity, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: true,
+      }).start(() => {
+        setShowPopup(false)
       })
-
-    } catch (error) {
-      console.error('Error getting AI response:', error)
-      const errorMessage = {
-        id: (Date.now() + 1).toString(),
-        text: `I'm having trouble responding right now. ${contact.name} will be with you shortly to help with your concern.`,
-        time: getCurrentTime(),
-        isFromUser: false,
-        sender: "AI Assistant",
-      }
-      setMessages(prev => [...prev, errorMessage])
-    } finally {
-      setIsTyping(false)
-    }
+    }, 2000)
   }
 
   const handleSend = async () => {
     const messageText = inputText.trim()
     if (messageText === "") return
 
-    console.log('Sending message:', messageText)
-
-    // Clear input immediately and store message text
     setInputText("")
 
     const userMessage = {
@@ -194,194 +129,95 @@ const ChatMessages = ({ navigation, route }) => {
       text: messageText,
       time: getCurrentTime(),
       isFromUser: true,
-      sender: "You",
+      sender: userProfile?.name || "You",
     }
 
-    // Add user message to local state immediately for better UX
     setMessages(prev => {
       const newMessages = [...prev, userMessage]
-      console.log('Added user message via text input')
       return newMessages
     })
 
-    setIsTyping(true)
-
     try {
-      // Small delay to make it feel more natural
-      await new Promise(resolve => setTimeout(resolve, 1500))
-      
-      let aiResponse
-      let aiMessage
-
-      // Check if this needs doctor's attention
-      if (needsDoctorAttention && needsDoctorAttention(messageText)) {
-        aiResponse = `I see this is something that requires ${contact.name}'s personal attention. I've notified them about your message, and they'll respond as soon as they're available. For urgent matters, please call the clinic directly.`
-        aiMessage = {
-          id: (Date.now() + 1).toString(),
-          text: aiResponse,
-          time: getCurrentTime(),
-          isFromUser: false,
-          sender: "AI Assistant",
-          needsDoctor: true,
-        }
-      } else {
-        // Get AI response with fallback
-        aiResponse = await getAIResponseSafely(messageText, contact.id)
-        
-        aiMessage = {
-          id: (Date.now() + 1).toString(),
-          text: aiResponse,
-          time: getCurrentTime(),
-          isFromUser: false,
-          sender: "AI Assistant",
-        }
-      }
-      
-      // Add AI message to local state
-      setMessages(prev => {
-        const newMessages = [...prev, aiMessage]
-        console.log('Added AI response via text input')
-        return newMessages
-      })
-
+      await new Promise(resolve => setTimeout(resolve, 500))
+      showPopupNotification()
     } catch (error) {
-      console.error('Error getting AI response:', error)
+      console.error('Error sending message:', error)
       const errorMessage = {
         id: (Date.now() + 1).toString(),
-        text: `I'm having trouble responding right now. ${contact.name} will be with you shortly to help with your concern.`,
+        text: "Failed to send message. Please check your connection and try again.",
         time: getCurrentTime(),
         isFromUser: false,
-        sender: "AI Assistant",
+        sender: "System",
+        isSystemMessage: true,
+        isError: true,
       }
       setMessages(prev => [...prev, errorMessage])
-    } finally {
-      setIsTyping(false)
     }
   }
 
-  // Safe AI response function with fallback
-  const getAIResponseSafely = async (messageText, contactId) => {
-    try {
-      if (getAIResponse) {
-        const response = await getAIResponse(messageText, contactId)
-        console.log('Got AI response:', response.substring(0, 50) + '...')
-        return response
-      } else {
-        return getSimpleResponse(messageText, contact)
-      }
-    } catch (error) {
-      console.error('AI service error:', error)
-      return getSimpleResponse(messageText, contact)
-    }
-  }
-
-  // Simple fallback responses
-  const getSimpleResponse = (messageText, contact) => {
-    const lowerMessage = messageText.toLowerCase()
-    
-    if (lowerMessage.includes('hello') || lowerMessage.includes('hi') || lowerMessage.includes('hey')) {
-      return `Hello! Great to hear from you. I'm ${contact.name}'s AI assistant. How can I help you with your dental care today?`
-    }
-    
-    if (lowerMessage.includes('pain') || lowerMessage.includes('hurt') || lowerMessage.includes('ache') || lowerMessage.includes('emergency')) {
-      return `I understand you're experiencing pain. For immediate pain relief, you can try taking over-the-counter pain medication as directed. However, I recommend scheduling an appointment with ${contact.name} to properly diagnose and treat the issue. For urgent matters, please call our clinic directly.`
-    }
-    
-    if (lowerMessage.includes('brush') || lowerMessage.includes('tooth') || lowerMessage.includes('teeth') || lowerMessage.includes('oral care')) {
-      return "Good oral hygiene is important! I recommend brushing twice daily with fluoride toothpaste, flossing daily, and using mouthwash. Replace your toothbrush every 3-4 months. Regular dental checkups every 6 months are also essential."
-    }
-    
-    if (lowerMessage.includes('appointment') || lowerMessage.includes('schedule') || lowerMessage.includes('book')) {
-      return `I'd be happy to help you with appointment information. Please call our clinic directly at 0917-817-4927 or let me know what specific time you're looking for, and I can check with ${contact.name}'s schedule. What type of appointment are you looking for?`
-    }
-
-    if (lowerMessage.includes('service') || lowerMessage.includes('treatment') || lowerMessage.includes('offer')) {
-      return `${contact.name} offers a comprehensive range of dental services including general checkups, cleanings, fillings, crowns, teeth whitening, and emergency dental care. What specific service are you interested in learning about?`
-    }
-    
-    // Default response
-    return `Thank you for your message! While I can help with basic dental information and appointment scheduling, ${contact.name} would be better suited to provide specific advice for your situation. Is there a particular dental concern you'd like to discuss?`
-  }
-
-  // Clear chat function
   const clearChat = async () => {
     try {
       await AsyncStorage.removeItem(`chat_${contact.id}`)
-      const greeting = getGreetingForContact(contact)
-      const initialMessage = {
-        id: "greeting_1",
-        text: greeting.message,
-        time: getCurrentTime(),
-        isFromUser: false,
-        sender: "AI Assistant",
-        showButtons: greeting.showButtons,
-        buttons: greeting.buttons,
-      }
-      setMessages([initialMessage])
-      console.log(`Cleared chat for ${contact.id}`)
+      setMessages([])
     } catch (error) {
       console.error('Error clearing chat:', error)
     }
   }
-
-  // Render quick action buttons
-  const renderButtons = (buttons) => (
-    <View style={styles.buttonsContainer}>
-      {buttons.map((button, index) => (
-        <TouchableOpacity
-          key={index}
-          style={styles.quickButton}
-          onPress={() => handleButtonClick(button.value)}
-        >
-          <Text style={styles.quickButtonText}>{button.text}</Text>
-        </TouchableOpacity>
-      ))}
-    </View>
-  )
 
   const renderMessage = ({ item, index }) => (
     <View style={[
       styles.messageRow,
       item.isFromUser ? styles.userRow : styles.botRow,
     ]}>
+      {/* Bot/System Avatar */}
       {!item.isFromUser && (
-        <View style={styles.avatar}>
+        <View style={[styles.avatar, item.isSystemMessage && styles.systemAvatar]}>
           <Ionicons 
-            name={item.sender === "AI Assistant" ? "chatbubbles" : "person"} 
+            name={item.isSystemMessage ? "information-circle" : "person"} 
             size={20} 
-            color="#666" 
+            color={item.isSystemMessage ? "#666" : "#666"} 
           />
         </View>
       )}
       <View style={[
         styles.bubbleContainer,
         item.isFromUser ? styles.userBubble : styles.botBubble,
+        item.isSystemMessage && styles.systemBubble,
+        item.isError && styles.errorBubble,
       ]}>
         {!item.isFromUser && (
-          <Text style={styles.senderText}>
+          <Text style={[
+            styles.senderText,
+            item.isSystemMessage && styles.systemSenderText
+          ]}>
             {item.sender}
           </Text>
         )}
         <Text style={[
           styles.messageText,
           item.isFromUser ? styles.userMessageText : styles.botMessageText,
+          item.isSystemMessage && styles.systemMessageText,
+          item.isError && styles.errorMessageText,
         ]}>
           {item.text}
         </Text>
         
-        {/* Render buttons if they exist */}
-        {item.showButtons && item.buttons && renderButtons(item.buttons)}
-        
         <Text style={[
           styles.messageTime,
           item.isFromUser ? styles.userMessageTime : styles.botMessageTime,
+          item.isSystemMessage && styles.systemMessageTime,
         ]}>
           {item.time}
         </Text>
       </View>
+      {/* User Avatar */}
       {item.isFromUser && (
         <View style={styles.avatar}>
-          <Ionicons name="person" size={20} color="#666" />
+          {userProfile?.profileImage?.uri ? (
+            <Image source={{ uri: userProfile.profileImage.uri }} style={styles.profileImage} />
+          ) : (
+            <Ionicons name="person" size={20} color="#666" />
+          )}
         </View>
       )}
     </View>
@@ -390,13 +226,13 @@ const ChatMessages = ({ navigation, route }) => {
   const renderTypingIndicator = () => (
     isTyping && (
       <View style={[styles.messageRow, styles.botRow]}>
-        <View style={styles.avatar}>
-          <Ionicons name="chatbubbles" size={20} color="#666" />
+        <View style={[styles.avatar, styles.systemAvatar]}>
+          <Ionicons name="information-circle" size={20} color="#666" />
         </View>
-        <View style={[styles.bubbleContainer, styles.botBubble, styles.typingBubble]}>
-          <Text style={styles.senderText}>AI Assistant</Text>
+        <View style={[styles.bubbleContainer, styles.systemBubble, styles.typingBubble]}>
+          <Text style={styles.systemSenderText}>System</Text>
           <View style={styles.typingContainer}>
-            <Text style={styles.typingText}>Typing</Text>
+            <Text style={styles.typingText}>Sending message</Text>
             <View style={styles.dotsContainer}>
               <ActivityIndicator size="small" color="#666" />
             </View>
@@ -406,13 +242,37 @@ const ChatMessages = ({ navigation, route }) => {
     )
   )
 
+  const PopupNotification = () => (
+    <Modal
+      transparent={true}
+      visible={showPopup}
+      animationType="none"
+      pointerEvents="none"
+    >
+      <View style={styles.popupContainer}>
+        <Animated.View 
+          style={[
+            styles.popupContent,
+            { opacity: popupOpacity }
+          ]}
+        >
+          <View style={styles.popupIcon}>
+            <Ionicons name="checkmark-circle" size={20} color="#4CAF50" />
+          </View>
+          <Text style={styles.popupText}>
+            Message sent to {contact.name}
+          </Text>
+        </Animated.View>
+      </View>
+    </Modal>
+  )
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <KeyboardAvoidingView
         style={styles.container}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
       >
-        {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity
             style={styles.backButton}
@@ -422,7 +282,12 @@ const ChatMessages = ({ navigation, route }) => {
           </TouchableOpacity>
           <View style={styles.headerInfo}>
             <Text style={styles.headerTitle}>{contact.name}</Text>
-            <Text style={styles.headerSubtitle}>AI Assistant Available</Text>
+            <View style={styles.statusContainer}>
+              <View style={[styles.statusDot, { backgroundColor: doctorOnlineStatus ? "#4CAF50" : "#999" }]} />
+              <Text style={styles.headerSubtitle}>
+                {doctorOnlineStatus ? "Online" : "Last seen recently"}
+              </Text>
+            </View>
           </View>
           <TouchableOpacity
             style={styles.headerButton}
@@ -432,7 +297,6 @@ const ChatMessages = ({ navigation, route }) => {
           </TouchableOpacity>
         </View>
 
-        {/* Messages */}
         <FlatList
           data={messages}
           renderItem={renderMessage}
@@ -443,12 +307,11 @@ const ChatMessages = ({ navigation, route }) => {
           showsVerticalScrollIndicator={false}
         />
 
-        {/* Input */}
         <View style={styles.inputContainer}>
           <View style={styles.inputWrapper}>
             <TextInput
               style={styles.textInput}
-              placeholder="Ask me about dental care..."
+              placeholder={`Message ${contact.name}...`}
               value={inputText}
               onChangeText={setInputText}
               multiline
@@ -469,6 +332,8 @@ const ChatMessages = ({ navigation, route }) => {
             </TouchableOpacity>
           </View>
         </View>
+
+        <PopupNotification />
       </KeyboardAvoidingView>
     </SafeAreaView>
   )
@@ -481,7 +346,7 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    backgroundColor: "#37a3ddff"
+    backgroundColor: "#E8EAEF"
   },
   header: {
     backgroundColor: "#FFFFFF",
@@ -505,10 +370,20 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: "#000"
   },
+  statusContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 2,
+  },
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginRight: 6,
+  },
   headerSubtitle: {
     fontSize: 12,
     color: "#004C9C",
-    marginTop: 2
   },
   headerButton: {
     padding: 8,
@@ -539,6 +414,15 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     marginHorizontal: 6,
+    overflow: 'hidden', // to ensure the image fits the rounded container
+  },
+  profileImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 17.5,
+  },
+  systemAvatar: {
+    backgroundColor: "#e8e8e8",
   },
   bubbleContainer: {
     maxWidth: "75%",
@@ -562,11 +446,24 @@ const styles = StyleSheet.create({
     shadowRadius: 2,
     elevation: 2,
   },
+  systemBubble: {
+    backgroundColor: "#f8f8f8",
+    borderColor: "#ddd",
+    borderWidth: 1,
+  },
+  errorBubble: {
+    backgroundColor: "#ffebee",
+    borderColor: "#f44336",
+    borderWidth: 1,
+  },
   senderText: {
     fontSize: 11,
     color: "#004C9C",
     fontWeight: "600",
     marginBottom: 4,
+  },
+  systemSenderText: {
+    color: "#666",
   },
   messageText: {
     fontSize: 15.5,
@@ -578,6 +475,13 @@ const styles = StyleSheet.create({
   botMessageText: {
     color: "#000"
   },
+  systemMessageText: {
+    color: "#555",
+    fontStyle: "italic",
+  },
+  errorMessageText: {
+    color: "#d32f2f",
+  },
   messageTime: {
     fontSize: 12,
     marginTop: 5
@@ -588,6 +492,10 @@ const styles = StyleSheet.create({
   },
   botMessageTime: {
     color: "#666",
+    textAlign: "right"
+  },
+  systemMessageTime: {
+    color: "#999",
     textAlign: "right"
   },
   typingBubble: {
@@ -605,24 +513,6 @@ const styles = StyleSheet.create({
   },
   dotsContainer: {
     marginLeft: 8
-  },
-  // New styles for buttons
-  buttonsContainer: {
-    marginTop: 10,
-    marginBottom: 5,
-  },
-  quickButton: {
-    backgroundColor: "#004C9C",
-    borderRadius: 20,
-    paddingHorizontal: 15,
-    paddingVertical: 8,
-    marginBottom: 6,
-    alignSelf: "flex-start",
-  },
-  quickButtonText: {
-    color: "#fff",
-    fontSize: 14,
-    fontWeight: "500",
   },
   inputContainer: {
     backgroundColor: "#fff",
@@ -654,6 +544,38 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     marginLeft: 5,
+  },
+  popupContainer: {
+    flex: 1,
+    justifyContent: "flex-start",
+    alignItems: "center",
+    paddingTop: 100,
+  },
+  popupContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FFFFFF",
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 25,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 8,
+    borderWidth: 1,
+    borderColor: "#E0E0E0",
+  },
+  popupIcon: {
+    marginRight: 10,
+  },
+  popupText: {
+    fontSize: 14,
+    color: "#333",
+    fontWeight: "500",
   },
 })
 

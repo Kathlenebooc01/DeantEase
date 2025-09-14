@@ -1,9 +1,13 @@
+import React, { useState } from 'react';
 import { NavigationContainer, ThemeContext } from "@react-navigation/native"
 import { createStackNavigator } from "@react-navigation/stack"
 
 // Import the UserProvider from your context file
 import { UserProvider } from "./src/context/UserContext"
 import { ThemeProvider } from "./src/context/ThemeContext"
+
+// Import the GlobalChatbot component
+import GlobalChatbot from "./src/components/GlobalChatbot"
 
 import Opening from "./src/screens/Opening"
 import GetStartedScreen from "./src/screens/Getstartedscreen"
@@ -26,33 +30,78 @@ import ChatMessages from "./src/screens/ChatMessages"
 
 const Stack = createStackNavigator()
 
+// Component that handles navigation and conditional chatbot rendering
+const AppNavigator = () => {
+  const [currentRoute, setCurrentRoute] = useState('Opening');
+  
+  // Screens where chatbot should NOT appear (authentication screens)
+  const excludedScreens = [
+    'Opening',
+    'GetStarted', 
+    'Login', 
+    'SignUp', 
+    'ForgotPassword'
+  ];
+  
+  // Check if chatbot should be shown on current screen
+  const shouldShowChatbot = !excludedScreens.includes(currentRoute);
+  
+  return (
+    <>
+      <Stack.Navigator 
+        initialRouteName="Opening" 
+        screenOptions={{ headerShown: false }}
+        screenListeners={{
+          state: (e) => {
+            // Track current route name
+            const state = e.data?.state;
+            if (state) {
+              const routes = state.routes;
+              if (routes && routes.length > 0) {
+                const currentRouteName = routes[state.index]?.name;
+                if (currentRouteName && currentRouteName !== currentRoute) {
+                  setCurrentRoute(currentRouteName);
+                }
+              }
+            }
+          }
+        }}
+      >
+        <Stack.Screen name="Opening" component={Opening} />
+        <Stack.Screen name="GetStarted" component={GetStartedScreen} />
+        <Stack.Screen name="Login" component={LoginScreen} />
+        <Stack.Screen name="SignUp" component={SignUpScreen} />
+        <Stack.Screen name="ForgotPassword" component={ForgotScreen} />
+        <Stack.Screen name="Profile" component={Profile} />
+        <Stack.Screen name="ServicesScreen" component={ServicesScreen} />
+        <Stack.Screen name="SettingsScreen" component={SettingsScreen} />
+        <Stack.Screen name="AppointmentScreen" component={AppointmentScreen} />
+        <Stack.Screen name="NotificationScreen" component={NotificationScreen} />
+        <Stack.Screen name="FeedbackScreen" component={FeedbackScreen} />
+        <Stack.Screen name="SurveyScreen" component={SurveyScreen} />
+        <Stack.Screen name="Nextsurvey" component={Nextsurvey} />
+        <Stack.Screen name="AccountSettings" component={AccountSettingsScreen} />
+        <Stack.Screen name="ViewAppointmentScreen" component={ViewAppointmentScreen} />
+        <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} />
+        <Stack.Screen name="MessagesScreen" component={MessagesScreen} />
+        <Stack.Screen name="ChatMessages" component={ChatMessages} />
+        <Stack.Screen name="ThemeContext" component={ThemeContext} />
+      </Stack.Navigator>
+      
+      {/* Conditionally render GlobalChatbot - only appears on authenticated screens */}
+      {shouldShowChatbot && <GlobalChatbot />}
+    </>
+  );
+};
+
 export default function App() {
   return (
-    // Wrap your entire NavigationContainer with the UserProvider
     <UserProvider>
-      <NavigationContainer>
-        <Stack.Navigator initialRouteName="Opening" screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="Opening" component={Opening} />
-          <Stack.Screen name="GetStarted" component={GetStartedScreen} />
-          <Stack.Screen name="Login" component={LoginScreen} />
-          <Stack.Screen name="SignUp" component={SignUpScreen} />
-          <Stack.Screen name="ForgotPassword" component={ForgotScreen} />
-          <Stack.Screen name="Profile" component={Profile} />
-          <Stack.Screen name="ServicesScreen" component={ServicesScreen} />
-          <Stack.Screen name="SettingsScreen" component={SettingsScreen} />
-          <Stack.Screen name="AppointmentScreen" component={AppointmentScreen} />
-          <Stack.Screen name="NotificationScreen" component={NotificationScreen} />
-          <Stack.Screen name="FeedbackScreen" component={FeedbackScreen} />
-          <Stack.Screen name="SurveyScreen" component={SurveyScreen} />
-          <Stack.Screen name="Nextsurvey" component={Nextsurvey} />
-          <Stack.Screen name="AccountSettings" component={AccountSettingsScreen} />
-          <Stack.Screen name="ViewAppointmentScreen" component={ViewAppointmentScreen} />
-          <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} />
-          <Stack.Screen name="MessagesScreen" component={MessagesScreen} />
-          <Stack.Screen name="ChatMessages" component={ChatMessages} />
-          <Stack.Screen name="ThemeContext" component={ThemeContext} />
-        </Stack.Navigator>
-      </NavigationContainer>
+      <ThemeProvider>
+        <NavigationContainer>
+          <AppNavigator />
+        </NavigationContainer>
+      </ThemeProvider>
     </UserProvider>
   )
 }

@@ -59,12 +59,30 @@ export const getJaneSyGreeting = () => {
 };
 
 /**
+ * Gets the initial greeting message for the global chatbot
+ * @returns {object} Contains the greeting message and button options
+ */
+export const getGlobalChatbotGreeting = () => {
+  return {
+    message: "Hello! 👋 I'm your dental AI assistant from Fano Dental Clinic. I can help answer questions about dental care, appointments, services, and provide general oral health guidance. How can I help you today?",
+    showButtons: true,
+    buttons: [
+      { text: "Dental Care Tips", value: "Give me dental care tips" },
+      { text: "Services & Pricing", value: "What services do you offer?" },
+      { text: "Emergency Help", value: "I have a dental emergency" },
+      { text: "Book Appointment", value: "I want to book an appointment" }
+    ]
+  };
+};
+
+/**
  * Provides a predefined dental response when the Google AI is unavailable.
  * This function handles common keywords and phrases with flexible matching.
  * @param {string} message The user's input message.
+ * @param {string} contactId The contact ID to personalize responses.
  * @returns {string} A predefined response based on keywords.
  */
-const getDentalResponse = (message) => {
+const getDentalResponse = (message, contactId = 'general') => {
   const lowerMessage = message.toLowerCase();
 
   // --- BUTTON-CLICK AND PRICE LIST RESPONSES ---
@@ -77,13 +95,18 @@ const getDentalResponse = (message) => {
     return "You can find us at 961 Consolacion-Tayud-Liloan Rd. Landing Catarman Liloan, Cebu, Liloan, Philippines. We look forward to seeing you!";
   }
 
-  if (lowerMessage.includes('our services') || lowerMessage.includes('full services')) {
+  if (lowerMessage.includes('our services') || lowerMessage.includes('full services') || lowerMessage.includes('what services do you offer')) {
     return `🦷 At Fano Dental Clinic, we offer:\n\n• Cleaning & Fillings\n• Extractions & Root Canal\n• Braces & Retainers\n• Teeth Whitening\n• Dentures\n• Dental Crowns\n\nFor detailed options, you can ask me about a specific service or visit our website for more information.`;
   }
   
   // New logic for displaying the complete pricing list
   if (lowerMessage.includes('pricing list')) {
     return `Here is our complete pricing list:\n\n• Consultation: ₱500\n• Cleaning: ₱800 - ₱2,500\n• Filling: ₱1,000 - ₱2,500\n• Fluoride/Sealant: ₱500 each\n• Root Canal/Extraction: ₱500 each\n• Braces/Whitening: ₱500 each\n• Other procedures: ₱500\n\nFor detailed pricing, insurance coverage, and payment plans, please contact our front desk team.`;
+  }
+
+  // Dental care tips response
+  if (lowerMessage.includes('give me dental care tips') || lowerMessage.includes('dental care tips') || lowerMessage.includes('oral health tips')) {
+    return `Here are essential dental care tips:\n\n🦷 Daily Care:\n• Brush twice daily with fluoride toothpaste\n• Floss daily between all teeth\n• Use antibacterial mouthwash\n• Replace your toothbrush every 3-4 months\n\n🍎 Diet Tips:\n• Limit sugary and acidic foods\n• Drink plenty of water\n• Eat calcium-rich foods\n\n📅 Regular Care:\n• Visit for cleanings every 6 months\n• Don't ignore tooth pain or sensitivity\n• Quit smoking for better oral health`;
   }
 
   // --- GENERAL RESPONSES (your existing logic) ---
@@ -172,12 +195,12 @@ const getDentalResponse = (message) => {
     return "If you suspect a cavity, it's important to see a dentist soon. Early treatment is usually simpler and less expensive. In the meantime, avoid sugary foods and drinks, and maintain good oral hygiene.";
   }
 
-  if (lowerMessage.includes('appointment') || lowerMessage.includes('schedule') || lowerMessage.includes('book') || lowerMessage.includes('visit')) {
+  if (lowerMessage.includes('appointment') || lowerMessage.includes('schedule') || lowerMessage.includes('book') || lowerMessage.includes('visit') || lowerMessage.includes('i want to book an appointment')) {
     return "I'd be happy to help with appointment information! Please call our office directly at 0917-817-4927 to schedule, or let me know what type of appointment you need and I can provide more specific guidance.";
   }
 
   if (lowerMessage.includes('emergency') || lowerMessage.includes('urgent') || lowerMessage.includes('broken') || lowerMessage.includes('knocked out')) {
-    return "This sounds like a dental emergency! Please call our office immediately. If it's after hours, we have an emergency line. For a knocked-out tooth, try to place it back in the socket gently, or keep it in milk until you can see a dentist.";
+    return "This sounds like a dental emergency! Please call our office immediately at 0917-817-4927. If it's after hours, we have an emergency line. For a knocked-out tooth, try to place it back in the socket gently, or keep it in milk until you can see a dentist.";
   }
 
   if (lowerMessage.includes('wisdom') || lowerMessage.includes('third molar')) {
@@ -252,14 +275,18 @@ const getDentalResponse = (message) => {
   }
 
   if (lowerMessage.includes('your name') || lowerMessage.includes('who are you')) {
-    return "I'm an AI dental assistant! I'm here to help answer basic dental questions and provide information about oral health. What can I help you with today?";
+    return "I'm an AI dental assistant for Fano Dental Clinic! I'm here to help answer basic dental questions and provide information about oral health. What can I help you with today?";
   }
 
   if (lowerMessage.includes('favorite') || lowerMessage.includes('like')) {
     return "As a dental AI, I really 'like' healthy smiles and good oral hygiene! My favorite thing is helping people maintain great dental health. What about you - do you have any dental concerns or questions?";
   }
 
-  // Default fallback response
+  // Default fallback response - personalized based on contact
+  if (contactId === 'global-chatbot') {
+    return "Thank you for your question! While I can provide basic dental information, our dentists would be the best people to give you specific advice for your situation. Is there a particular dental concern I can help you with, or would you like to schedule an appointment at 0917-817-4927?";
+  }
+  
   return "Thank you for your question! While I can provide basic dental information, a dentist would be the best person to give you specific advice for your situation. Is there a particular dental concern I can help you with, or would you like to schedule an appointment?";
 };
 
@@ -282,7 +309,7 @@ export const needsDoctorAttention = (message) => {
 
 /**
  * Main function to get a response from the AI or a predefined fallback.
- * The logic is designed to prioritize safety and functionality.
+ * Enhanced with true conversational AI capabilities.
  * @param {string} message The user's input message.
  * @param {string} contactId The contact ID to personalize responses.
  * @returns {Promise<string>} A promise that resolves to the bot's response.
@@ -294,27 +321,44 @@ export const getAIResponse = async (message, contactId) => {
       return "This sounds like a dental emergency! Please call our office immediately for professional assistance at 0917-817-4927. If it's after hours, please seek immediate care from an emergency dentist or hospital.";
     }
 
-    // 2. Check for button-click keywords before trying the AI
-    const buttonResponse = getDentalResponse(message);
-    if (buttonResponse && !buttonResponse.startsWith("Thank you for your question!")) {
-      return buttonResponse;
-    }
-    
-    // 3. Attempt to use Google AI if it's initialized
+    // 2. Try Google AI first for natural conversation
     if (model) {
-      const contactName = contactId === "dr-jessica" ? "Dr. Jessica" : contactId === "jane-sy" ? "Jane Sy" : "the dentist";
+      let contactName = "the dentist";
+      let clinicInfo = "Fano Dental Clinic";
       
-      const prompt = `You are a professional, helpful, and empathetic AI dental assistant for ${contactName}'s dental clinic. Your purpose is to provide general, educational dental information.
+      if (contactId === "dr-jessica") {
+        contactName = "Dr. Jessica";
+      } else if (contactId === "jane-sy") {
+        contactName = "Jane Sy";
+      } else if (contactId === "global-chatbot") {
+        contactName = "Fano Dental Clinic";
+        clinicInfo = "Fano Dental Clinic";
+      }
+      
+      const prompt = `You are a friendly, professional, and empathetic AI dental assistant for ${contactName} at ${clinicInfo}. You're designed to be conversational, helpful, and engaging while maintaining your dental expertise.
 
-Here are your core rules:
-1. **Never give medical advice or diagnose conditions.** Always preface serious recommendations with "While I can provide general information, you should always consult with a dentist for a proper diagnosis."
-2. **Prioritize safety.** For any symptom of serious pain, trauma, or potential emergency, immediately and urgently recommend scheduling an appointment or seeking professional care.
-3. **Keep it concise.** Provide short, direct, and easy-to-understand answers. Use bullet points when appropriate.
-4. **Maintain a professional and friendly tone.** Use contractions and sound like a helpful assistant, not a robotic machine.
-5. **If the question is outside of your knowledge base (e.g., weather, politics, non-dental topics), politely state that you can only answer dental-related questions and ask if they have a dental concern you can help with.**
-6. **If the user asks for pricing, refer to the provided pricing list below.**
+**Your Personality:**
+- Warm, friendly, and approachable
+- Professional but not overly formal
+- Genuinely helpful and caring
+- Can engage in light conversation while steering towards dental topics
+- Always ready to help with dental questions
 
-**Pricing List (for reference):**
+**Core Guidelines:**
+1. **Be Conversational**: You can chat about various topics, but always maintain your identity as a dental AI assistant
+2. **Dental Focus**: While you can discuss other topics briefly, always try to connect back to dental health when appropriate
+3. **Safety First**: For any dental emergency or serious symptoms, immediately recommend professional care
+4. **No Medical Diagnosis**: Provide general information but always recommend consulting with a dentist for specific issues
+5. **Be Helpful**: Answer questions naturally and provide useful information
+6. **Stay In Character**: You're an AI assistant for a dental clinic, so maintain that context
+
+**Clinic Information:**
+- Name: Fano Dental Clinic
+- Location: 961 Consolacion-Tayud-Liloan Rd. Landing Catarman Liloan, Cebu, Liloan, Philippines
+- Phone: 0917-817-4927
+- Hours: Mon-Sat: 9:00 AM – 5:00 PM, Sun: 1:00 PM – 4:00 PM
+
+**Services & Pricing:**
 - Consultation: ₱500
 - Cleaning: ₱800 - ₱2,500
 - Filling: ₱1,000 - ₱2,500
@@ -323,7 +367,17 @@ Here are your core rules:
 - Braces/Whitening: ₱500 each
 - Other procedures: ₱500
 
-User asks: "${message}"`;
+**Instructions:**
+- Answer naturally and conversationally
+- If asked about non-dental topics, you can engage briefly but connect back to dental health when possible
+- Be empathetic and understanding
+- Use a warm, friendly tone
+- Provide helpful and accurate information
+- Always offer to help with dental concerns
+
+User says: "${message}"
+
+Respond as the dental AI assistant:`;
 
       const result = await model.generateContent(prompt);
       const response = await result.response;
@@ -334,12 +388,18 @@ User asks: "${message}"`;
       }
     }
     
-    // 4. Fallback to predefined responses if AI is not available or doesn't return a good response
-    return getDentalResponse(message);
+    // 3. Check for predefined responses as backup
+    const buttonResponse = getDentalResponse(message, contactId);
+    if (buttonResponse && !buttonResponse.startsWith("Thank you for your question!")) {
+      return buttonResponse;
+    }
+    
+    // 4. Final fallback if AI is not available
+    return getDentalResponse(message, contactId);
 
   } catch (error) {
     console.error('AI Service Error:', error);
     // Return a safe predefined response if an AI error occurs
-    return getDentalResponse(message);
+    return getDentalResponse(message, contactId);
   }
 };
