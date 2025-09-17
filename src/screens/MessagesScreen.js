@@ -1,474 +1,321 @@
-import React, { useState, useEffect, useCallback } from "react";
+// screens/MessagesScreen.js - Corrected for instant UI updates
+import React, { useState, useEffect, useCallback, useContext } from "react";
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, SafeAreaView, Alert, Modal, Animated } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from 'expo-linear-gradient';
 import Navbar from '../navigations/navbar';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
+import { UserContext } from '../context/UserContext';
+import { collection, doc, onSnapshot, query, orderBy, getDoc } from "firebase/firestore";
+import { db } from '../config/firebaseConfig';
 
 const MessagesScreen = ({ navigation }) => {
-  const [conversations, setConversations] = useState([])
-  const [showContextMenu, setShowContextMenu] = useState(false)
-  const [selectedConversation, setSelectedConversation] = useState(null)
-  const [menuPosition, setMenuPosition] = useState({ x: 0, y: 0 })
-  const [fadeAnim] = useState(new Animated.Value(0))
+  const [conversations, setConversations] = useState([]);
+  const [showContextMenu, setShowContextMenu] = useState(false);
+  const [selectedConversation, setSelectedConversation] = useState(null);
+  const [menuPosition, setMenuPosition] = useState({ x: 0, y: 0 });
+  const [fadeAnim] = useState(new Animated.Value(0));
   
-  // Initialize conversations data with real doctors
+  const { userProfile } = useContext(UserContext);
+  
   const initializeConversations = () => {
-    const initialConversations = [
+    return [
       {
         id: "dr-jessica",
         name: "Dr. Jessica",
-        lastMessage: "Welcome! You can send messages to Dr. Jessica. They are currently online and will respond soon.",
+        lastMessage: "Welcome! You can send messages to Dr. Jessica.",
         time: getCurrentTime(),
+        timestamp: new Date(),
         unreadCount: 0,
         isAI: false,
         avatar: "person",
         isOnline: true,
-        specialty: "General Dentistry",
         status: "Available",
         avatarColor: "#FF6B6B",
       },
       {
         id: "jane-sy",
         name: "Jane Sy",
-        lastMessage: "Welcome! You can send messages to Jane Sy. They are currently online and will respond soon.",
+        lastMessage: "Welcome! You can send messages to Jane Sy.",
         time: getCurrentTime(),
+        timestamp: new Date(),
         unreadCount: 0,
         isAI: false,
         avatar: "person",
         isOnline: Math.random() > 0.5,
-        specialty: "Pediatric Dentistry",
         status: Math.random() > 0.5 ? "Available" : "Busy",
         avatarColor: "#4ECDC4",
       },
-    ]
-    return initialConversations
-  }
-
-  // Force reset conversations (for development/testing)
-  const resetConversations = async () => {
-    try {
-      await AsyncStorage.removeItem('conversations')
-      const initialConversations = initializeConversations()
-      setConversations(initialConversations)
-      await AsyncStorage.setItem('conversations', JSON.stringify(initialConversations))
-      console.log('Force reset conversations')
-    } catch (error) {
-      console.error('Error resetting conversations:', error)
-    }
-  }
-
-  // Load conversations from storage or initialize
-  const loadConversations = async () => {
-    try {
-      const storedConversations = await AsyncStorage.getItem('conversations')
-      if (storedConversations) {
-        const parsed = JSON.parse(storedConversations)
-        setConversations(parsed)
-        console.log('Loaded conversations from storage:', parsed)
-      } else {
-        const initialConversations = initializeConversations()
-        setConversations(initialConversations)
-        await AsyncStorage.setItem('conversations', JSON.stringify(initialConversations))
-        console.log('Initialized conversations')
-      }
-    } catch (error) {
-      console.error('Error loading conversations:', error)
-      const initialConversations = initializeConversations()
-      setConversations(initialConversations)
-    }
-  }
-
-  // Load conversations when component mounts
-  useEffect(() => {
-    loadConversations()
-    // Fade in animation
-    Animated.timing(fadeAnim, {
-      toValue: 1,
-      duration: 500,
-      useNativeDriver: true,
-    }).start()
-  }, [])
-
-  // Refresh conversations every time screen comes into focus
-  useFocusEffect(
-    useCallback(() => {
-      console.log('Messages screen focused - reloading conversations')
-      loadConversations()
-    }, [])
-  )
+    ];
+  };
 
   const getCurrentTime = () => {
-    const now = new Date()
+    const now = new Date();
     return now.toLocaleTimeString('en-US', {
       hour: 'numeric',
       minute: '2-digit',
       hour12: true
-    })
-  }
+    });
+  };
 
-  const formatTime = (timeString) => {
-    if (timeString === "Yesterday" || timeString.includes(":")) {
-      return timeString
+  const setupFirebaseListeners = useCallback(() => {
+    if (!userProfile?.id) {
+      setConversations(initializeConversations());
+      return;
     }
-    return timeString
-  }
-
-  const getTotalUnreadCount = () => {
-    return conversations.reduce((total, conv) => total + conv.unreadCount, 0)
-  }
-
-  const handleConversationPress = async (contact) => {
-    // Hide context menu if it's showing
-    setShowContextMenu(false)
-    
-    // Mark conversation as read locally and in storage
-    const updatedConversations = conversations.map(conv => 
-      conv.id === contact.id 
-        ? { ...conv, unreadCount: 0 }
-        : conv
-    )
-    
-    setConversations(updatedConversations)
-    
-    // Save updated conversations to storage
-    try {
-      await AsyncStorage.setItem('conversations', JSON.stringify(updatedConversations))
-      console.log('Marked conversation as read:', contact.id)
-    } catch (error) {
-      console.error('Error saving conversations:', error)
-    }
-
-    // Navigate to chat with the contact data and callback
-    navigation.navigate("ChatMessages", { 
-      contact,
-      onUpdateLastMessage: updateLastMessage 
-    })
-  }
-
-  // Handle long press for context menu
-  const handleLongPress = (item, event) => {
-    const { pageX, pageY } = event.nativeEvent
-    setSelectedConversation(item)
-    setMenuPosition({ x: pageX, y: pageY })
-    setShowContextMenu(true)
-  }
-
-  // Mark as unread
-  const markAsUnread = async () => {
-    if (!selectedConversation) return
-    
-    try {
-      const updatedConversations = conversations.map(conv => 
-        conv.id === selectedConversation.id 
-          ? { ...conv, unreadCount: conv.unreadCount > 0 ? conv.unreadCount : 1 }
-          : conv
-      )
-      
-      setConversations(updatedConversations)
-      await AsyncStorage.setItem('conversations', JSON.stringify(updatedConversations))
-      console.log('Marked conversation as unread:', selectedConversation.id)
-      
-      setShowContextMenu(false)
-      setSelectedConversation(null)
-    } catch (error) {
-      console.error('Error marking as unread:', error)
-    }
-  }
-
-  // Delete conversation
-  const deleteConversation = () => {
-    if (!selectedConversation) return
-    
-    Alert.alert(
-      "Delete Conversation",
-      `Are you sure you want to delete all messages with ${selectedConversation.name}? This action cannot be undone.`,
-      [
-        {
-          text: "Cancel",
-          style: "cancel",
-          onPress: () => {
-            setShowContextMenu(false)
-            setSelectedConversation(null)
-          }
-        },
-        {
-          text: "Delete",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              // Remove chat messages from storage
-              await AsyncStorage.removeItem(`chat_${selectedConversation.id}`)
-              
-              // Reset conversation to initial state without welcome message
-              const updatedConversations = conversations.map(conv => 
-                conv.id === selectedConversation.id 
-                  ? { 
-                      ...conv, 
-                      lastMessage: conv.id === "dr-jessica" ? "At Fano Dental Clinic, we offer..." : "Tap to start conversation",
-                      time: getCurrentTime(),
-                      unreadCount: 0
-                    }
-                  : conv
-              )
-              
-              setConversations(updatedConversations)
-              await AsyncStorage.setItem('conversations', JSON.stringify(updatedConversations))
-              
-              console.log(`Deleted conversation for ${selectedConversation.id}`)
-              
-              setShowContextMenu(false)
-              setSelectedConversation(null)
-              
-              // Show confirmation
-              Alert.alert("Success", "Conversation deleted successfully!")
-              
-            } catch (error) {
-              console.error('Error deleting conversation:', error)
-              Alert.alert("Error", "Failed to delete conversation. Please try again.")
-              setShowContextMenu(false)
-              setSelectedConversation(null)
-            }
+  
+    const doctors = ['dr-jessica', 'jane-sy'];
+    const unsubscribes = [];
+  
+    // Start with default conversations to ensure all doctors are shown
+    setConversations(initializeConversations());
+  
+    for (const doctorId of doctors) {
+      const messagesRef = collection(
+        db,
+        "chat_rooms",
+        doctorId,
+        "user_conversations",
+        userProfile.id,
+        "messages"
+      );
+      const messagesQuery = query(messagesRef, orderBy("timestamp", "desc"));
+  
+      const unsubscribe = onSnapshot(messagesQuery, (snapshot) => {
+        let unreadCount = 0;
+        let lastMessage = "";
+        let lastMessageTime = "";
+        let lastMessageTimestamp = new Date();
+  
+        if (!snapshot.empty) {
+          const latestMessage = snapshot.docs[0].data();
+          lastMessage = latestMessage.text;
+          lastMessageTimestamp = latestMessage.timestamp?.toDate ? latestMessage.timestamp.toDate() : new Date();
+          lastMessageTime = lastMessageTimestamp.toLocaleTimeString('en-US', {
+            hour: 'numeric',
+            minute: '2-digit',
+            hour12: true
+          });
+  
+          // You can add unread count logic here if needed
+          // For now, let's keep it simple and just update the last message
+          // unreadCount = ...
+        } else {
+          // If no messages, set back to default welcome message
+          const initialConversations = initializeConversations();
+          const initialConv = initialConversations.find(conv => conv.id === doctorId);
+          if (initialConv) {
+            lastMessage = initialConv.lastMessage;
+            lastMessageTime = initialConv.time;
+            lastMessageTimestamp = initialConv.timestamp;
           }
         }
-      ]
-    )
-  }
-
-  // Function to update last message from chat screen
-  const updateLastMessage = async (contactId, lastMessage, time) => {
-    try {
-      console.log('Updating last message for:', contactId, 'with:', lastMessage)
-      
-      // First, get the current conversations from storage to ensure we have the latest
-      const storedConversations = await AsyncStorage.getItem('conversations')
-      let currentConversations = conversations
-      
-      if (storedConversations) {
-        currentConversations = JSON.parse(storedConversations)
-      }
-      
-      // Update the conversations
-      const updatedConversations = currentConversations.map(conv => 
-        conv.id === contactId 
-          ? { 
-              ...conv, 
-              lastMessage: lastMessage,
-              time: time,
-              unreadCount: 0 // Keep unread count as 0 since user is actively chatting
-            }
-          : conv
-      )
-      
-      // Update local state
-      setConversations(updatedConversations)
-      
-      // Save to AsyncStorage
-      await AsyncStorage.setItem('conversations', JSON.stringify(updatedConversations))
-      
-      console.log('Successfully updated last message for:', contactId)
-    } catch (error) {
-      console.error('Error updating last message:', error)
+  
+        setConversations(prev => {
+          const updated = prev.map(conv =>
+            conv.id === doctorId
+              ? {
+                  ...conv,
+                  lastMessage,
+                  time: lastMessageTime,
+                  timestamp: lastMessageTimestamp,
+                  unreadCount
+                }
+              : conv
+          );
+          return updated.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+        });
+      }, (error) => {
+        console.error(`Error listening to messages for ${doctorId}:`, error);
+      });
+  
+      unsubscribes.push(unsubscribe);
     }
-  }
+  
+    return () => unsubscribes.forEach(unsub => unsub());
+  }, [userProfile]);
+  
+  useFocusEffect(
+    useCallback(() => {
+      console.log('Messages screen focused. Setting up Firebase listeners.');
+      const unsubscribe = setupFirebaseListeners();
+      return () => {
+        console.log('Messages screen blurred. Cleaning up listeners.');
+        unsubscribe();
+      };
+    }, [setupFirebaseListeners])
+  );
 
-  // Context Menu Component
+  useEffect(() => {
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 500,
+      useNativeDriver: true,
+    }).start();
+  }, [fadeAnim]);
+
+  const handleConversationPress = (contact) => {
+    setShowContextMenu(false);
+    navigation.navigate("ChatMessages", { contact });
+  };
+
+  const handleLongPress = (item, event) => {
+    const { pageX, pageY } = event.nativeEvent;
+    setSelectedConversation(item);
+    setMenuPosition({ x: pageX, y: pageY });
+    setShowContextMenu(true);
+  };
+
+  const markAsUnread = async () => {
+    if (!selectedConversation) return;
+    try {
+      const updatedConversations = conversations.map(conv =>
+        conv.id === selectedConversation.id
+          ? { ...conv, unreadCount: conv.unreadCount > 0 ? conv.unreadCount : 1, timestamp: new Date() }
+          : conv
+      );
+      const sortedConversations = updatedConversations.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+      setConversations(sortedConversations);
+      await AsyncStorage.setItem('conversations', JSON.stringify(sortedConversations));
+      setShowContextMenu(false);
+      setSelectedConversation(null);
+    } catch (error) {
+      console.error('Error marking as unread:', error);
+    }
+  };
+
+  const deleteConversation = () => {
+    if (!selectedConversation) return;
+    Alert.alert(
+      "Clear Conversation",
+      `Are you sure you want to clear local messages with ${selectedConversation.name}? This will only clear messages on your device.`,
+      [
+        { text: "Cancel", style: "cancel", onPress: () => { setShowContextMenu(false); setSelectedConversation(null); } },
+        { text: "Clear", style: "destructive", onPress: async () => {
+          try {
+            await AsyncStorage.removeItem(`chat_${selectedConversation.id}`);
+            const updatedConversations = conversations.map(conv =>
+              conv.id === selectedConversation.id
+                ? { ...initializeConversations().find(c => c.id === conv.id) }
+                : conv
+            );
+            const sortedConversations = updatedConversations.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+            setConversations(sortedConversations);
+            await AsyncStorage.setItem('conversations', JSON.stringify(sortedConversations));
+            setShowContextMenu(false);
+            setSelectedConversation(null);
+            Alert.alert("Success", "Local conversation cleared successfully!");
+          } catch (error) {
+            console.error('Error clearing conversation:', error);
+            Alert.alert("Error", "Failed to clear conversation. Please try again.");
+            setShowContextMenu(false);
+            setSelectedConversation(null);
+          }
+        }},
+      ]
+    );
+  };
+
   const ContextMenu = () => (
-    <Modal
-      transparent={true}
-      visible={showContextMenu}
-      animationType="fade"
-      onRequestClose={() => {
-        setShowContextMenu(false)
-        setSelectedConversation(null)
-      }}
-    >
-      <TouchableOpacity 
-        style={styles.modalOverlay}
-        activeOpacity={1}
-        onPress={() => {
-          setShowContextMenu(false)
-          setSelectedConversation(null)
-        }}
-      >
+    <Modal transparent={true} visible={showContextMenu} animationType="fade" onRequestClose={() => { setShowContextMenu(false); setSelectedConversation(null); }}>
+      <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => { setShowContextMenu(false); setSelectedConversation(null); }}>
         <View style={[styles.contextMenu, { top: menuPosition.y - 100, left: Math.max(10, menuPosition.x - 75) }]}>
           <TouchableOpacity style={styles.contextMenuItem} onPress={markAsUnread}>
             <Ionicons name="mail-outline" size={20} color="#6B73FF" />
             <Text style={styles.contextMenuText}>Mark as unread</Text>
           </TouchableOpacity>
-          
           <View style={styles.contextMenuSeparator} />
-          
           <TouchableOpacity style={styles.contextMenuItem} onPress={deleteConversation}>
             <Ionicons name="trash-outline" size={20} color="#FF6B6B" />
-            <Text style={[styles.contextMenuText, { color: "#FF6B6B" }]}>Delete conversation</Text>
+            <Text style={[styles.contextMenuText, { color: "#FF6B6B" }]}>Clear local messages</Text>
           </TouchableOpacity>
         </View>
       </TouchableOpacity>
     </Modal>
-  )
+  );
 
-  const renderMessageItem = ({ item, index }) => (
-    <Animated.View 
-      style={[
-        { 
-          opacity: fadeAnim,
-          transform: [{
-            translateY: fadeAnim.interpolate({
-              inputRange: [0, 1],
-              outputRange: [50, 0]
-            })
-          }]
-        }
-      ]}
+  const renderMessageItem = ({ item }) => (
+    <Animated.View
+      style={[{ opacity: fadeAnim, transform: [{ translateY: fadeAnim.interpolate({ inputRange: [0, 1], outputRange: [50, 0] }) }] }]}
     >
-      <TouchableOpacity 
-        style={[
-          styles.messageItem,
-          item.unreadCount > 0 && styles.unreadMessageItem
-        ]} 
+      <TouchableOpacity
+        style={[styles.messageItem, item.unreadCount > 0 && styles.unreadMessageItem]}
         onPress={() => handleConversationPress(item)}
         onLongPress={(event) => handleLongPress(item, event)}
         delayLongPress={500}
         activeOpacity={0.95}
       >
         <View style={styles.avatarContainer}>
-          <LinearGradient
-            colors={[item.avatarColor || "#4ECDC4", item.avatarColor ? `${item.avatarColor}AA` : "#4ECDC4AA"]}
-            style={styles.avatar}
-          >
-            <Ionicons 
-              name="person" 
-              size={26} 
-              color="#FFFFFF"
-            />
+          <LinearGradient colors={[item.avatarColor || "#4ECDC4", item.avatarColor ? `${item.avatarColor}AA` : "#4ECDC4AA"]} style={styles.avatar}>
+            <Ionicons name="person" size={26} color="#FFFFFF" />
           </LinearGradient>
         </View>
-
         <View style={styles.messageContent}>
           <View style={styles.messageHeader}>
             <View style={styles.nameContainer}>
-              <Text style={[
-                styles.contactName,
-                item.unreadCount > 0 && styles.unreadContactName
-              ]}>
-                {item.name}
-              </Text>
+              <Text style={[styles.contactName, item.unreadCount > 0 && styles.unreadContactName]}>{item.name}</Text>
             </View>
             <View style={styles.timeContainer}>
-              <Text style={styles.messageTime}>
-                {formatTime(item.time)}
-              </Text>
+              <Text style={styles.messageTime}>{item.time}</Text>
               {item.unreadCount > 0 && (
-                <LinearGradient
-                  colors={['#6B73FF', '#9C88FF']}
-                  style={styles.unreadBadge}
-                >
+                <LinearGradient colors={['#6B73FF', '#9C88FF']} style={styles.unreadBadge}>
                   <Text style={styles.unreadCount}>{item.unreadCount}</Text>
                 </LinearGradient>
               )}
             </View>
           </View>
-          <Text 
-            style={[
-              styles.messagePreview,
-              item.unreadCount > 0 && styles.unreadMessagePreview
-            ]} 
-            numberOfLines={2}
-          >
+          <Text style={[styles.messagePreview, item.unreadCount > 0 && styles.unreadMessagePreview]} numberOfLines={2}>
             {item.lastMessage}
           </Text>
-          <View style={styles.specialtyContainer}>
-            {item.specialty && (
-              <View style={styles.specialtyBadge}>
-                <Ionicons name="medical" size={12} color="#3B82F6" />
-                <Text style={styles.specialtyText}>{item.specialty}</Text>
-              </View>
-            )}
-          </View>
         </View>
-        
         <View style={styles.chevronContainer}>
           <Ionicons name="chevron-forward" size={20} color="#D1D9FF" />
         </View>
       </TouchableOpacity>
     </Animated.View>
-  )
+  );
 
-  const getStatusColor = (status) => {
-    switch (status) {
-      case "Available": return "#10B981"
-      case "Busy": return "#F59E0B"
-      default: return "#9CA3AF"
-    }
-  }
+  const getTotalUnreadCount = () => conversations.reduce((total, conv) => total + conv.unreadCount, 0);
 
   const renderEmptyState = () => (
     <View style={styles.emptyContainer}>
-      <LinearGradient
-        colors={['#6B73FF20', '#9C88FF20']}
-        style={styles.emptyIconContainer}
-      >
+      <LinearGradient colors={['#6B73FF20', '#9C88FF20']} style={styles.emptyIconContainer}>
         <Ionicons name="chatbubbles-outline" size={64} color="#6B73FF" />
       </LinearGradient>
       <Text style={styles.emptyTitle}>No messages yet</Text>
-      <Text style={styles.emptySubtitle}>
-        Start a conversation with our experienced dental professionals
-      </Text>
-      
+      <Text style={styles.emptySubtitle}>Start a conversation with our experienced dental professionals</Text>
       <View style={styles.doctorCardsContainer}>
-        {conversations.map((doctor, index) => (
-          <TouchableOpacity 
-            key={doctor.id}
-            style={styles.doctorCard}
-            onPress={() => handleConversationPress(doctor)}
-          >
-            <LinearGradient
-              colors={[doctor.avatarColor || "#4ECDC4", `${doctor.avatarColor || "#4ECDC4"}80`]}
-              style={styles.doctorAvatar}
-            >
+        {initializeConversations().map((doctor) => (
+          <TouchableOpacity key={doctor.id} style={styles.doctorCard} onPress={() => handleConversationPress(doctor)}>
+            <LinearGradient colors={[doctor.avatarColor, `${doctor.avatarColor}80`]} style={styles.doctorAvatar}>
               <Ionicons name="person" size={24} color="#FFFFFF" />
             </LinearGradient>
             <View style={styles.doctorInfo}>
               <Text style={styles.doctorName}>{doctor.name}</Text>
-              <Text style={styles.doctorSpecialty}>{doctor.specialty}</Text>
-              <View style={[styles.doctorStatus, { backgroundColor: getStatusColor(doctor.status) }]}>
-                <Text style={styles.doctorStatusText}>{doctor.status}</Text>
-              </View>
+              <Text style={styles.doctorStatusText}>{doctor.status}</Text>
             </View>
             <Ionicons name="arrow-forward" size={20} color="#6B73FF" />
           </TouchableOpacity>
         ))}
       </View>
     </View>
-  )
+  );
 
   return (
     <SafeAreaView style={styles.container}>
-      <LinearGradient
-        colors={['#FFFFFF', '#F8FAFF']}
-        style={styles.header}
-      >
+      <LinearGradient colors={['#FFFFFF', '#F8FAFF']} style={styles.header}>
         <View style={styles.headerContent}>
           <View style={styles.headerLeft}>
-            <Text style={styles.headerTitle}>
-              Messages
-            </Text>
+            <Text style={styles.headerTitle}>Messages</Text>
             {getTotalUnreadCount() > 0 && (
-              <LinearGradient
-                colors={['#FF6B6B', '#FF8E8E']}
-                style={styles.headerBadge}
-              >
+              <LinearGradient colors={['#FF6B6B', '#FF8E8E']} style={styles.headerBadge}>
                 <Text style={styles.headerBadgeText}>{getTotalUnreadCount()}</Text>
               </LinearGradient>
             )}
           </View>
           <TouchableOpacity style={styles.headerButton}>
-            <LinearGradient
-              colors={['#6B73FF10', '#9C88FF10']}
-              style={styles.headerButtonGradient}
-            >
+            <LinearGradient colors={['#6B73FF10', '#9C88FF10']} style={styles.headerButtonGradient}>
               <Ionicons name="search" size={22} color="#6B73FF" />
             </LinearGradient>
           </TouchableOpacity>
@@ -489,21 +336,12 @@ const MessagesScreen = ({ navigation }) => {
       )}
 
       <Navbar navigation={navigation} activeTab="Message" />
-      
-      {/* Context Menu */}
       <ContextMenu />
     </SafeAreaView>
-  )
-}
+  );
+};
 
-const getStatusColor = (status) => {
-  switch (status) {
-    case "Available": return "#10B981"
-    case "Busy": return "#F59E0B"
-    default: return "#9CA3AF"
-  }
-}
-
+// Keep all your existing styles
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -623,18 +461,6 @@ const styles = StyleSheet.create({
   },
   unreadContactName: {
     color: "#3B82F6",
-  },
-  statusTag: {
-    flexDirection: "row",
-    alignItems: "center",
-    borderRadius: 12,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-  },
-  statusTagText: {
-    color: "#FFFFFF",
-    fontSize: 11,
-    fontWeight: "600",
   },
   timeContainer: {
     alignItems: "flex-end",

@@ -1,5 +1,5 @@
-// screens/ChatMessages.js
-import React, { useState, useEffect, useContext } from "react"
+// screens/ChatMessages.js - Updated for your Firebase structure
+import React, { useState, useEffect, useContext } from "react";
 import {
   View,
   Text,
@@ -13,215 +13,199 @@ import {
   ActivityIndicator,
   Modal,
   Animated,
-  Image, // Import Image component
-} from "react-native"
-import { Ionicons } from "@expo/vector-icons"
-import AsyncStorage from '@react-native-async-storage/async-storage'
-import { UserContext } from '../context/UserContext' // Import UserContext
+  Image,
+} from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { UserContext } from '../context/UserContext';
+import { collection, doc, addDoc, setDoc, getDoc, onSnapshot, query, orderBy, serverTimestamp } from "firebase/firestore";
+import { db } from '../config/firebaseConfig';
 
 const ChatMessages = ({ navigation, route }) => {
-  const { contact, onUpdateLastMessage } = route.params
-  const [inputText, setInputText] = useState("")
-  const [isTyping, setIsTyping] = useState(false)
-  const [messages, setMessages] = useState([])
-  const [doctorOnlineStatus, setDoctorOnlineStatus] = useState(true) // Simulate online status
-  
-  // Use UserContext to get user profile data
-  const { userProfile } = useContext(UserContext)
-  
-  // Pop-up notification states
-  const [showPopup, setShowPopup] = useState(false)
-  const [popupOpacity] = useState(new Animated.Value(0))
+  const { contact } = route.params;
+  const [inputText, setInputText] = useState("");
+  const [isTyping, setIsTyping] = useState(false);
+  const [messages, setMessages] = useState([]);
+  const [doctorOnlineStatus, setDoctorOnlineStatus] = useState(true);
+  const { userProfile } = useContext(UserContext);
+  const [showPopup, setShowPopup] = useState(false);
+  const [popupOpacity] = useState(new Animated.Value(0));
 
-  // Load existing messages and initialize if first time
   useEffect(() => {
-    loadMessages()
-  }, [contact.id])
+    if (!userProfile?.id) return;
+    loadMessagesFromFirebase();
+    setupFirebaseListener();
+  }, [contact.id, userProfile]);
 
-  // Save messages and update parent whenever messages state changes
-  useEffect(() => {
-    if (messages.length > 0) {
-      saveMessagesToStorage()
-      const lastMessage = messages[messages.length - 1]
-      if (lastMessage && !lastMessage.isSystemMessage && onUpdateLastMessage) {
-        onUpdateLastMessage(contact.id, lastMessage.text, lastMessage.time)
-      }
+  const setupFirebaseListener = () => {
+    if (!userProfile?.id) return;
+    const messagesRef = collection(
+      db,
+      "chat_rooms",
+      contact.id,
+      "user_conversations",
+      userProfile.id,
+      "messages"
+    );
+    const messagesQuery = query(messagesRef, orderBy("timestamp", "asc"));
+    const unsubscribe = onSnapshot(messagesQuery, (snapshot) => {
+      const firebaseMessages = snapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          text: data.text || "",
+          time: data.timestamp?.toDate ? data.timestamp.toDate().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }) : getCurrentTime(),
+          isFromUser: data.senderType === 'user',
+          sender: data.senderName || (data.senderType === 'admin' ? contact.name : userProfile?.name || "You"),
+          isSystemMessage: data.senderType === 'system',
+          timestamp: data.timestamp?.toDate ? data.timestamp.toDate() : new Date(),
+          senderType: data.senderType || 'user'
+        };
+      });
+      setMessages(firebaseMessages);
+      saveMessagesToStorage(firebaseMessages);
+    }, (error) => {
+      console.error("Firebase listener error:", error);
+      loadMessagesFromStorage();
+    });
+    return () => unsubscribe();
+  };
+
+  const loadMessagesFromFirebase = async () => {
+    if (!userProfile?.id) {
+      loadMessagesFromStorage();
+      return;
     }
-  }, [messages, contact.id, onUpdateLastMessage])
-
-  const loadMessages = async () => {
     try {
-      const storedMessages = await AsyncStorage.getItem(`chat_${contact.id}`)
-      
+      const userConversationRef = doc(db, "chat_rooms", contact.id, "user_conversations", userProfile.id);
+      const userConversationDoc = await getDoc(userConversationRef);
+      if (!userConversationDoc.exists()) {
+        await setDoc(userConversationRef, {
+          userId: userProfile.id,
+          userName: userProfile.name || userProfile.fullName || "User",
+          userEmail: userProfile.email || "",
+          lastMessage: "",
+          lastMessageTime: serverTimestamp(),
+          lastMessageSender: "",
+          createdAt: serverTimestamp()
+        });
+        const messagesRef = collection(db, "chat_rooms", contact.id, "user_conversations", userProfile.id, "messages");
+        await addDoc(messagesRef, {
+          text: `Welcome! You can send messages to ${contact.name}. ${doctorOnlineStatus ? "They are online and will respond soon." : "They will respond when they're available."}`,
+          senderId: 'system',
+          senderName: 'System',
+          senderType: 'system',
+          timestamp: serverTimestamp()
+        });
+      }
+    } catch (error) {
+      console.error('Error setting up Firebase conversation:', error);
+      loadMessagesFromStorage();
+    }
+  };
+
+  const loadMessagesFromStorage = async () => {
+    try {
+      const storedMessages = await AsyncStorage.getItem(`chat_${contact.id}`);
       if (storedMessages) {
-        const parsedMessages = JSON.parse(storedMessages)
-        setMessages(parsedMessages)
+        setMessages(JSON.parse(storedMessages));
       } else {
-        const initialMessage = {
-          id: "welcome_1",
-          text: `Welcome! You can send messages to ${contact.name}. ${doctorOnlineStatus ? "" : "They will respond when they're available."}`,
-          time: getCurrentTime(),
-          isFromUser: false,
-          sender: contact.name,
-          isSystemMessage: true,
-        }
-        setMessages([initialMessage])
+        const initialMessage = { id: "welcome_1", text: `Welcome! You can send messages to ${contact.name}. ${doctorOnlineStatus ? "" : "They will respond when they're available."}`, time: getCurrentTime(), isFromUser: false, sender: contact.name, isSystemMessage: true };
+        setMessages([initialMessage]);
       }
     } catch (error) {
-      console.error('Error loading messages:', error)
-      const initialMessage = {
-        id: "welcome_1",
-        text: `Welcome! You can send messages to ${contact.name}. ${doctorOnlineStatus ? "" : "They will respond when they're available."}`,
-        time: getCurrentTime(),
-        isFromUser: false,
-        sender: contact.name,
-        isSystemMessage: true,
-      }
-      setMessages([initialMessage])
+      console.error('Error loading messages from storage:', error);
+      const initialMessage = { id: "welcome_1", text: `Welcome! You can send messages to ${contact.name}. ${doctorOnlineStatus ? "" : "They will respond when they're available."}`, time: getCurrentTime(), isFromUser: false, sender: contact.name, isSystemMessage: true };
+      setMessages([initialMessage]);
     }
-  }
+  };
 
-  const saveMessagesToStorage = async () => {
+  const saveMessagesToStorage = async (messagesToSave = messages) => {
     try {
-      await AsyncStorage.setItem(`chat_${contact.id}`, JSON.stringify(messages))
+      await AsyncStorage.setItem(`chat_${contact.id}`, JSON.stringify(messagesToSave));
     } catch (error) {
-      console.error('Error saving messages:', error)
+      console.error('Error saving messages to storage:', error);
     }
-  }
+  };
 
-  const getCurrentTime = () => {
-    const now = new Date()
-    return now.toLocaleTimeString('en-US', {
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true
-    })
-  }
+  const getCurrentTime = () => new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
 
   const showPopupNotification = () => {
-    setShowPopup(true)
-    
-    Animated.timing(popupOpacity, {
-      toValue: 1,
-      duration: 300,
-      useNativeDriver: true,
-    }).start()
-
+    setShowPopup(true);
+    Animated.timing(popupOpacity, { toValue: 1, duration: 300, useNativeDriver: true }).start();
     setTimeout(() => {
-      Animated.timing(popupOpacity, {
-        toValue: 0,
-        duration: 300,
-        useNativeDriver: true,
-      }).start(() => {
-        setShowPopup(false)
-      })
-    }, 2000)
-  }
+      Animated.timing(popupOpacity, { toValue: 0, duration: 300, useNativeDriver: true }).start(() => {
+        setShowPopup(false);
+      });
+    }, 2000);
+  };
 
   const handleSend = async () => {
-    const messageText = inputText.trim()
-    if (messageText === "") return
-
-    setInputText("")
-
-    const userMessage = {
-      id: Date.now().toString(),
-      text: messageText,
-      time: getCurrentTime(),
-      isFromUser: true,
-      sender: userProfile?.name || "You",
-    }
-
-    setMessages(prev => {
-      const newMessages = [...prev, userMessage]
-      return newMessages
-    })
-
+    const messageText = inputText.trim();
+    if (messageText === "") return;
+    setInputText("");
+    setIsTyping(true);
+    const userMessage = { id: Date.now().toString(), text: messageText, time: getCurrentTime(), isFromUser: true, sender: userProfile?.name || "You" };
+    setMessages(prev => [...prev, userMessage]);
     try {
-      await new Promise(resolve => setTimeout(resolve, 500))
-      showPopupNotification()
+      if (!userProfile?.id) throw new Error("User profile not found");
+      const messagesRef = collection(db, "chat_rooms", contact.id, "user_conversations", userProfile.id, "messages");
+      await addDoc(messagesRef, {
+        text: messageText,
+        senderId: userProfile.id,
+        senderName: userProfile.name || userProfile.fullName || "You",
+        senderType: 'user',
+        timestamp: serverTimestamp()
+      });
+      const userConversationRef = doc(db, "chat_rooms", contact.id, "user_conversations", userProfile.id);
+      await setDoc(userConversationRef, {
+        userId: userProfile.id,
+        userName: userProfile.name || userProfile.fullName || "User",
+        userEmail: userProfile.email || "",
+        lastMessage: messageText,
+        lastMessageTime: serverTimestamp(),
+        lastMessageSender: "user"
+      }, { merge: true });
+      setIsTyping(false);
+      showPopupNotification();
     } catch (error) {
-      console.error('Error sending message:', error)
-      const errorMessage = {
-        id: (Date.now() + 1).toString(),
-        text: "Failed to send message. Please check your connection and try again.",
-        time: getCurrentTime(),
-        isFromUser: false,
-        sender: "System",
-        isSystemMessage: true,
-        isError: true,
-      }
-      setMessages(prev => [...prev, errorMessage])
+      console.error('Error sending message to Firebase:', error);
+      setIsTyping(false);
+      const errorMessage = { id: (Date.now() + 1).toString(), text: "Message saved locally. Will sync when connection is restored.", time: getCurrentTime(), isFromUser: false, sender: "System", isSystemMessage: true, isError: false };
+      setMessages(prev => [...prev, errorMessage]);
+      saveMessagesToStorage([...messages, userMessage, errorMessage]);
+      showPopupNotification();
     }
-  }
+  };
 
   const clearChat = async () => {
     try {
-      await AsyncStorage.removeItem(`chat_${contact.id}`)
-      setMessages([])
+      await AsyncStorage.removeItem(`chat_${contact.id}`);
+      setMessages([]);
     } catch (error) {
-      console.error('Error clearing chat:', error)
+      console.error('Error clearing chat:', error);
     }
-  }
+  };
 
-  const renderMessage = ({ item, index }) => (
-    <View style={[
-      styles.messageRow,
-      item.isFromUser ? styles.userRow : styles.botRow,
-    ]}>
-      {/* Bot/System Avatar */}
+  const renderMessage = ({ item }) => (
+    <View style={[styles.messageRow, item.isFromUser ? styles.userRow : styles.botRow]}>
       {!item.isFromUser && (
         <View style={[styles.avatar, item.isSystemMessage && styles.systemAvatar]}>
-          <Ionicons 
-            name={item.isSystemMessage ? "information-circle" : "person"} 
-            size={20} 
-            color={item.isSystemMessage ? "#666" : "#666"} 
-          />
+          <Ionicons name={item.isSystemMessage ? "information-circle" : "person"} size={20} color={item.isSystemMessage ? "#666" : "#666"} />
         </View>
       )}
-      <View style={[
-        styles.bubbleContainer,
-        item.isFromUser ? styles.userBubble : styles.botBubble,
-        item.isSystemMessage && styles.systemBubble,
-        item.isError && styles.errorBubble,
-      ]}>
-        {!item.isFromUser && (
-          <Text style={[
-            styles.senderText,
-            item.isSystemMessage && styles.systemSenderText
-          ]}>
-            {item.sender}
-          </Text>
-        )}
-        <Text style={[
-          styles.messageText,
-          item.isFromUser ? styles.userMessageText : styles.botMessageText,
-          item.isSystemMessage && styles.systemMessageText,
-          item.isError && styles.errorMessageText,
-        ]}>
-          {item.text}
-        </Text>
-        
-        <Text style={[
-          styles.messageTime,
-          item.isFromUser ? styles.userMessageTime : styles.botMessageTime,
-          item.isSystemMessage && styles.systemMessageTime,
-        ]}>
-          {item.time}
-        </Text>
+      <View style={[styles.bubbleContainer, item.isFromUser ? styles.userBubble : styles.botBubble, item.isSystemMessage && styles.systemBubble, item.isError && styles.errorBubble]}>
+        {!item.isFromUser && (<Text style={[styles.senderText, item.isSystemMessage && styles.systemSenderText]}>{item.sender}</Text>)}
+        <Text style={[styles.messageText, item.isFromUser ? styles.userMessageText : styles.botMessageText, item.isSystemMessage && styles.systemMessageText, item.isError && styles.errorMessageText]}>{item.text}</Text>
+        <Text style={[styles.messageTime, item.isFromUser ? styles.userMessageTime : styles.botMessageTime, item.isSystemMessage && styles.systemMessageTime]}>{item.time}</Text>
       </View>
-      {/* User Avatar */}
       {item.isFromUser && (
         <View style={styles.avatar}>
-          {userProfile?.profileImage?.uri ? (
-            <Image source={{ uri: userProfile.profileImage.uri }} style={styles.profileImage} />
-          ) : (
-            <Ionicons name="person" size={20} color="#666" />
-          )}
+          {userProfile?.profileImage?.uri ? (<Image source={{ uri: userProfile.profileImage.uri }} style={styles.profileImage} />) : (<Ionicons name="person" size={20} color="#666" />)}
         </View>
       )}
     </View>
-  )
+  );
 
   const renderTypingIndicator = () => (
     isTyping && (
@@ -240,63 +224,35 @@ const ChatMessages = ({ navigation, route }) => {
         </View>
       </View>
     )
-  )
+  );
 
   const PopupNotification = () => (
-    <Modal
-      transparent={true}
-      visible={showPopup}
-      animationType="none"
-      pointerEvents="none"
-    >
+    <Modal transparent={true} visible={showPopup} animationType="none" pointerEvents="none">
       <View style={styles.popupContainer}>
-        <Animated.View 
-          style={[
-            styles.popupContent,
-            { opacity: popupOpacity }
-          ]}
-        >
+        <Animated.View style={[styles.popupContent, { opacity: popupOpacity }]}>
           <View style={styles.popupIcon}>
             <Ionicons name="checkmark-circle" size={20} color="#4CAF50" />
           </View>
-          <Text style={styles.popupText}>
-            Message sent to {contact.name}
-          </Text>
+          <Text style={styles.popupText}>Message sent to {contact.name}</Text>
         </Animated.View>
       </View>
     </Modal>
-  )
+  );
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <KeyboardAvoidingView
-        style={styles.container}
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-      >
+      <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === "ios" ? "padding" : "height"}>
         <View style={styles.header}>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => navigation.goBack()}
-          >
-            <Ionicons name="chevron-back" size={24} color="#000" />
-          </TouchableOpacity>
+          <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}><Ionicons name="chevron-back" size={24} color="#000" /></TouchableOpacity>
           <View style={styles.headerInfo}>
             <Text style={styles.headerTitle}>{contact.name}</Text>
             <View style={styles.statusContainer}>
               <View style={[styles.statusDot, { backgroundColor: doctorOnlineStatus ? "#4CAF50" : "#999" }]} />
-              <Text style={styles.headerSubtitle}>
-                {doctorOnlineStatus ? "Online" : "Last seen recently"}
-              </Text>
+              <Text style={styles.headerSubtitle}>{doctorOnlineStatus ? "Online" : "Last seen recently"}</Text>
             </View>
           </View>
-          <TouchableOpacity
-            style={styles.headerButton}
-            onPress={clearChat}
-          >
-            <Ionicons name="refresh-outline" size={20} color="#666" />
-          </TouchableOpacity>
+          <TouchableOpacity style={styles.headerButton} onPress={clearChat}><Ionicons name="refresh-outline" size={20} color="#666" /></TouchableOpacity>
         </View>
-
         <FlatList
           data={messages}
           renderItem={renderMessage}
@@ -306,7 +262,6 @@ const ChatMessages = ({ navigation, route }) => {
           ListFooterComponent={renderTypingIndicator}
           showsVerticalScrollIndicator={false}
         />
-
         <View style={styles.inputContainer}>
           <View style={styles.inputWrapper}>
             <TextInput
@@ -320,25 +275,16 @@ const ChatMessages = ({ navigation, route }) => {
               returnKeyType="send"
               onSubmitEditing={handleSend}
             />
-            <TouchableOpacity
-              style={[
-                styles.sendButton,
-                (inputText.trim() === "" || isTyping) && { opacity: 0.5 },
-              ]}
-              onPress={handleSend}
-              disabled={inputText.trim() === "" || isTyping}
-            >
+            <TouchableOpacity style={[styles.sendButton, (inputText.trim() === "" || isTyping) && { opacity: 0.5 }]} onPress={handleSend} disabled={inputText.trim() === "" || isTyping}>
               <Ionicons name="send" size={18} color="#fff" />
             </TouchableOpacity>
           </View>
         </View>
-
         <PopupNotification />
       </KeyboardAvoidingView>
     </SafeAreaView>
-  )
-}
-
+  );
+};
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
@@ -414,7 +360,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     marginHorizontal: 6,
-    overflow: 'hidden', // to ensure the image fits the rounded container
+    overflow: 'hidden',
   },
   profileImage: {
     width: '100%',

@@ -1,4 +1,4 @@
-// Step 1: Create components/GlobalChatbot.js
+// Step 1: Update components/GlobalChatbot.js
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
@@ -28,15 +28,15 @@ const GlobalChatbot = () => {
   const [inputText, setInputText] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
-  const [robotState, setRobotState] = useState('normal'); // 'normal', 'thinking', 'yawning', 'sleeping', 'looking_left', 'looking_right'
+  const [robotState, setRobotState] = useState('normal'); 
   const [lastInteraction, setLastInteraction] = useState(Date.now());
   
   // Animation refs
   const slideAnim = useRef(new Animated.Value(0)).current;
   const blinkAnim = useRef(new Animated.Value(1)).current;
-  const eyeLookAnim = useRef(new Animated.Value(0)).current; // -1 left, 0 center, 1 right
-  const mouthAnim = useRef(new Animated.Value(0)).current; // For yawning
-  const sleepBounceAnim = useRef(new Animated.Value(0)).current; // For sleeping animation
+  const eyeLookAnim = useRef(new Animated.Value(0)).current;
+  const mouthAnim = useRef(new Animated.Value(0)).current;
+  const sleepBounceAnim = useRef(new Animated.Value(0)).current;
   const antennaAnim = useRef(new Animated.Value(0)).current;
   const flatListRef = useRef(null);
 
@@ -94,6 +94,15 @@ const GlobalChatbot = () => {
     
     // Restart idle timers
     startIdleAnimations();
+  };
+
+  // Build conversation context from recent messages
+  const buildConversationContext = (currentMessages) => {
+    const recentMessages = currentMessages.slice(-4); // Last 4 messages for context
+    const context = recentMessages.map(msg => 
+      `${msg.isFromUser ? 'User' : 'Assistant'}: ${msg.text}`
+    ).join('\n');
+    return context;
   };
 
   // Start idle behavior timers
@@ -353,11 +362,15 @@ const GlobalChatbot = () => {
     try {
       await new Promise(resolve => setTimeout(resolve, 1000));
       
+      // Build conversation context
+      const conversationContext = buildConversationContext(newMessages);
+      
       let aiResponse;
       if (needsDoctorAttention && needsDoctorAttention(messageText)) {
         aiResponse = "This sounds like something that needs immediate professional attention. Please call our clinic at 0917-817-4927 or visit us for urgent dental care.";
       } else {
-        aiResponse = await getAIResponse(messageText, 'global-chatbot');
+        // Pass conversation context to AI
+        aiResponse = await getAIResponse(messageText, 'global-chatbot', conversationContext);
       }
 
       const aiMessage = {
@@ -413,15 +426,19 @@ const GlobalChatbot = () => {
     try {
       await new Promise(resolve => setTimeout(resolve, 1000));
       
+      // Build conversation context
+      const conversationContext = buildConversationContext(newMessages);
+      
       let aiResponse;
       let showBookButton = false;
       
       // Check if the user wants to book an appointment
       if (buttonValue === "I want to book an appointment") {
-        aiResponse = "I'd be happy to help you book an appointment! 📅 You can schedule your visit with our dental team. We offer various services including routine cleanings, checkups, and specialized treatments. Click the button below to proceed with booking.";
+        aiResponse = "I'd be happy to help you book an appointment! 📅 Please call our clinic at 0917-817-4927 to schedule your visit. We're open Mon-Sat: 9AM-5PM, Sunday: 1PM-4PM. You can also click below to go to our appointment booking page.";
         showBookButton = true;
       } else {
-        aiResponse = await getAIResponse(buttonValue, 'global-chatbot');
+        // Pass conversation context to AI
+        aiResponse = await getAIResponse(buttonValue, 'global-chatbot', conversationContext);
       }
 
       const aiMessage = {
