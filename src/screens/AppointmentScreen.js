@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -17,7 +17,26 @@ import LottieView from 'lottie-react-native';
 import Navbar from '../navigations/navbar';
 // Import Firebase functions
 import { db, auth } from '../config/firebaseConfig';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, onSnapshot, query, where, orderBy } from 'firebase/firestore';
+
+// Updated image map - make sure these match your Firebase localImage fields exactly
+const serviceImages = {
+  'Consulation.png': require('../../assets/ServicesScreen/Consulation.png'),
+  'atay.png': require('../../assets/ServicesScreen/atay.png'),
+  'image 32.png': require('../../assets/ServicesScreen/image 32.png'), // Tooth Extraction
+  'pit.png': require('../../assets/ServicesScreen/pit.png'), // Pit and Fissure
+  'image 36.png': require('../../assets/ServicesScreen/image 36.png'), 
+  'image 37.png': require('../../assets/ServicesScreen/image 37.png'), // Fluoride Varnish
+  'image 38.png': require('../../assets/ServicesScreen/image 38.png'), // Denture
+  'image 41.png': require('../../assets/ServicesScreen/image 41.png'), // Dental Filling
+  'image 42.png': require('../../assets/ServicesScreen/image 42.png'), // Frenectomy
+  'image 43.png': require('../../assets/ServicesScreen/image 43.png'), // Gingivectomy
+  'image 44.png': require('../../assets/ServicesScreen/image 44.png'), // Dental Crown
+  'image 45.png': require('../../assets/ServicesScreen/image 45.png'), // Teeth Whitening
+  'image 54.png': require('../../assets/ServicesScreen/image 54.png'), // Orthodontic Braces
+  'Root.png': require('../../assets/ServicesScreen/Root.png'), // Root Canal
+  'Braces.png': require('../../assets/ServicesScreen/Braces.png'), // If you have this
+};
 
 const AppointmentScreen = ({ navigation }) => {
   const today = new Date();
@@ -26,6 +45,8 @@ const AppointmentScreen = ({ navigation }) => {
   const [selectedDate, setSelectedDate] = useState(null);
   const [selectedTime, setSelectedTime] = useState(null);
   const [selectedServices, setSelectedServices] = useState([]);
+  const [services, setServices] = useState([]);
+  const [servicesLoading, setServicesLoading] = useState(true);
 
   const [isCalendarExpanded, setIsCalendarExpanded] = useState(false);
   const [isTimeExpanded, setIsTimeExpanded] = useState(false);
@@ -33,121 +54,54 @@ const AppointmentScreen = ({ navigation }) => {
   const [showConfirmationModal, setShowConfirmationModal] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [showPreConfirmationModal, setShowPreConfirmationModal] = useState(false);
+  
 
   const timeSlots = [
     '9:00 AM', '9:30 AM', '10:00 AM', '10:30 AM', '11:00 AM', '11:30 AM', '12:00 PM',
     '1:00 PM', '1:30 PM', '2:00 PM', '2:30 PM', '3:00 PM', '3:30 PM', '4:00 PM'
   ];
 
-  const services = [
-    {
-      id: "consultation",
-      name: "Dental Consultation",
-      description: "Full check-up of teeth, gums, and mouth with advice and treatment options.",
-      image: require("../../assets/ServicesScreen/Consulation.png"),
-      price: "₱500",
-      icon: 'medkit-outline'
-    },
-    {
-      id: "prophylaxis",
-      name: "Oral Prophylaxis (Cleaning)",
-      description: "Professional cleaning to remove buildup, keep your smile fresh, and prevent gum disease.",
-      image: require("../../assets/ServicesScreen/Oral.png"),
-      price: "₱800 - ₱2,500",
-      icon: 'sparkles-outline'
-    },
-    {
-      id: "dental_filling",
-      name: "Dental Filling (Pasta)",
-      description: "Tooth-colored fillings matched to your natural teeth for a seamless smile.",
-      image: require("../../assets/ServicesScreen/image 41.png"),
-      price: "₱1,000 - ₱2,500",
-      icon: 'cut-outline'
-    },
-    {
-      id: "fluoride",
-      name: "Fluoride Varnish",
-      description: "Fluoride varnish coats teeth to strengthen enamel and protect against cavities.",
-      image: require("../../assets/ServicesScreen/image 37.png"),
-      price: "₱500",
-      icon: 'shield-outline'
-    },
-    {
-      id: "pit_fissure",
-      name: "Pit and Fissure Sealant",
-      description: "Protective coating applied to molars to seal grooves and prevent cavities.",
-      image: require("../../assets/ServicesScreen/image 35.png"),
-      price: "₱500",
-      icon: 'shield-outline'
-    },
-    {
-      id: "root_canal",
-      name: "Root Canal Treatment",
-      description: "Root Canal Treatment removes an infected tooth nerve and seals it to prevent reinfection.",
-      image: require("../../assets/ServicesScreen/Root.png"),
-      price: "₱500",
-      icon: 'pulse-outline'
-    },
-    {
-      id: "tooth_extraction",
-      name: "Tooth Extraction (Odontectomy)",
-      description: "If you have a tooth that is damaged by trauma or decay, it may require extraction.",
-      image: require("../../assets/ServicesScreen/image 32.png"),
-      price: "₱500",
-      icon: 'flash-outline'
-    },
-    {
-      id: "orthodontics",
-      name: "Orthodontics Braces",
-      description: "Braces straighten misaligned teeth and correct bite issues, improving appearance and oral health.",
-      image: require("../../assets/profile/image 54.png"),
-      price: "₱500",
-      icon: 'grid-outline'
-    },
-    {
-      id: "teeth_whitening",
-      name: "Teeth Whitening",
-      description: "A cosmetic treatment that lightens teeth and removes stains, giving you a whiter and more confident smile.",
-      image: require("../../assets/profile/image 45.png"),
-      price: "₱500",
-      icon: 'color-palette-outline'
-    },
-    {
-      id: "gingivectomy",
-      name: "Gingivectomy",
-      description: "A minor surgery that removes excess or diseased gum tissue, improving gum health and smile appearance.",
-      image: require("../../assets/ServicesScreen/image 43.png"),
-      price: "₱500",
-      icon: 'bandage-outline'
-    },
-    {
-      id: "frenectomy",
-      name: "Frenectomy",
-      description: "A minor surgery to correct tongue-tie or lip-tie, improving speech, eating, and orthodontic care.",
-      image: require("../../assets/ServicesScreen/image 42.png"),
-      price: "₱500",
-      icon: 'medical-outline'
-    },
-    {
-      id: "denture",
-      name: "Denture",
-      description: "Custom-made dentures replace missing teeth, restoring your smile and chewing function.",
-      image: require("../../assets/ServicesScreen/image 38.png"),
-      price: "₱500",
-      details: ["• Partial/Metal", "• Complete", "• Soft Liner", "• Complete denture and etc."],
-      icon: 'happy-outline'
-    },
-    {
-      id: "dental_crown",
-      name: "Dental Crown",
-      description: "A crown is a cap that restores a damaged tooth's strength, function, and appearance.",
-      image: require("../../assets/ServicesScreen/image 44.png"),
-      price: "₱500",
-      details: ["• Jacket Crown", "• PFM Crown", "• All Ceramic", "• Zirconia Crown", "• Second Crown"],
-      icon: 'ellipse-outline'
-    }
-  ];
+  // Fetch services from Firebase
+  useEffect(() => {
+    const servicesRef = collection(db, 'services');
+    const q = query(
+      servicesRef,
+      where('isActive', '==', true),
+      orderBy('order', 'asc')
+    );
 
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+      const fetchedServices = [];
+      querySnapshot.forEach((doc) => {
+        const serviceData = {
+          id: doc.id,
+          ...doc.data()
+        };
+        fetchedServices.push(serviceData);
+      });
+      
+      // Debug logging to see what services are being fetched
+      console.log('Fetched services count:', fetchedServices.length);
+      fetchedServices.forEach((service, index) => {
+        console.log(`Service ${index + 1}:`, {
+          id: service.id,
+          name: service.name,
+          localImage: service.localImage,
+          price: service.price
+        });
+      });
+      
+      setServices(fetchedServices);
+      setServicesLoading(false);
+    }, (error) => {
+      console.error('Error fetching services:', error);
+      setServicesLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  
   const saveAppointmentToFirebase = async (appointmentData) => {
     try {
       const appointmentsCollection = collection(db, 'appointments');
@@ -286,19 +240,19 @@ const AppointmentScreen = ({ navigation }) => {
         return;
       }
 
- const appointmentData = {
-  userId: currentUser.uid,
-  userName: currentUser.displayName || 'User',
-  userEmail: currentUser.email,
-  date: selectedDate.toISOString(),
-  time: selectedTime,
-  services: selectedServices,
-  doctor: 'Dr. Jessicca Fano',
-  status: 'pending', // ✅ This is correct
-  createdAt: serverTimestamp(),
-  appointmentDate: selectedDate.toLocaleDateString('en-US'),
-  endTime: getEndTime(selectedTime)
-};
+      const appointmentData = {
+        userId: currentUser.uid,
+        userName: currentUser.displayName || 'User',
+        userEmail: currentUser.email,
+        date: selectedDate.toISOString(),
+        time: selectedTime,
+        services: selectedServices,
+        doctor: 'Dr. Jessicca Fano',
+        status: 'pending',
+        createdAt: serverTimestamp(),
+        appointmentDate: selectedDate.toLocaleDateString('en-US'),
+        endTime: getEndTime(selectedTime)
+      };
 
       const result = await saveAppointmentToFirebase(appointmentData);
 
@@ -580,37 +534,58 @@ const AppointmentScreen = ({ navigation }) => {
           )}
         </View>
 
-        {/* Choose Services Section */}
+        {/* Choose Services Section - FIXED */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Choose Services</Text>
-          <View style={styles.servicesGrid}>
-            {services.map((service) => (
-              <TouchableOpacity
-                key={service.id}
-                onPress={() => handleServiceClick(service)}
-                style={[
-                  styles.serviceButton,
-                  selectedServices.includes(service.name) && styles.selectedServiceButton
-                ]}
-              >
-
-                <Image
-                  source={service.image}
-                  style={[
-                    styles.serviceImage,
-                    service.id === 'prophylaxis' && styles.prophylaxisImage,
-                  ]}
-                  resizeMode="contain"
-                />
-                <Text style={[
-                  styles.serviceButtonText,
-                  selectedServices.includes(service.name) && styles.selectedServiceButtonText
-                ]}>
-                  {service.name}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+          {servicesLoading ? (
+            <View style={{ alignItems: 'center', padding: 20 }}>
+              <ActivityIndicator size="small" color="#2563EB" />
+              <Text style={{ marginTop: 8, color: '#6B7280' }}>Loading services...</Text>
+            </View>
+          ) : services.length === 0 ? (
+            <View style={{ alignItems: 'center', padding: 20 }}>
+              <Text style={{ color: '#6B7280' }}>No services available</Text>
+            </View>
+          ) : (
+            <View style={styles.servicesGrid}>
+              {services.map((service) => {
+                // Get the image source, fallback to consultation image if not found
+                const imageSource = serviceImages[service.localImage] || serviceImages['Consulation.png'];
+                
+                return (
+                  <TouchableOpacity
+                    key={service.id}
+                    onPress={() => handleServiceClick(service)}
+                    style={[
+                      styles.serviceButton,
+                      selectedServices.includes(service.name) && styles.selectedServiceButton
+                    ]}
+                  >
+                    <Image
+                      source={imageSource}
+                      style={styles.serviceImage}
+                      resizeMode="contain"
+                      onError={(error) => {
+                        console.log('Image load error for', service.localImage, error);
+                      }}
+                    />
+                    <Text style={[
+                      styles.serviceButtonText,
+                      selectedServices.includes(service.name) && styles.selectedServiceButtonText
+                    ]}>
+                      {service.name || 'Oral Prophylaxis (Cleaning)'}
+                    </Text>
+                    <Text style={[
+                      styles.servicePriceText,
+                      selectedServices.includes(service.name) && styles.selectedServicePriceText
+                    ]}>
+                      {service.price || 'Price not available'}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          )}
         </View>
 
         {/* Add some bottom padding for the confirm button */}
@@ -651,7 +626,6 @@ const AppointmentScreen = ({ navigation }) => {
             <View style={styles.preConfirmationDetails}>
               <View style={styles.detailRow}>
                 <Ionicons name="person-outline" size={24} color="#6B7280" style={styles.detailIcon} />
-                {/* ✅ CORRECTED: Display the user's actual name here */}
                 <Text style={styles.detailText}>{auth.currentUser?.displayName || 'User'}</Text>
               </View>
               <View style={styles.detailRow}>
@@ -959,15 +933,16 @@ const styles = StyleSheet.create({
   disabledTimeSlotText: {
     color: '#9CA3AF',
   },
+  // Services Styles - Fixed for proper display
   servicesGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    rowGap: 10,
+    paddingBottom: 10,
   },
   serviceButton: {
-    width: '32%',
-    aspectRatio: 0,
+    width: '48%',
+    aspectRatio: 0.85,
     padding: 12,
     backgroundColor: '#EBF4FF',
     borderRadius: 16,
@@ -975,6 +950,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 1,
     borderColor: '#D1E5F8',
+    marginBottom: 12,
   },
   selectedServiceButton: {
     backgroundColor: '#2563EB',
@@ -983,24 +959,27 @@ const styles = StyleSheet.create({
   serviceImage: {
     width: 40,
     height: 40,
-    marginBottom: 4,
-
-  },
-  prophylaxisImage: {
-    width: 40,
-    height: 40,
-    marginBottom: -5,
-
+    marginBottom: 8,
   },
   serviceButtonText: {
     fontSize: 11,
     fontWeight: '600',
     color: '#1E40AF',
     textAlign: 'center',
-    marginTop: 8,
+    marginBottom: 4,
+    lineHeight: 14,
   },
   selectedServiceButtonText: {
     color: '#FFFFFF',
+  },
+  servicePriceText: {
+    fontSize: 10,
+    fontWeight: '500',
+    color: '#6B7280',
+    textAlign: 'center',
+  },
+  selectedServicePriceText: {
+    color: '#E5E7EB',
   },
   confirmContainer: {
     backgroundColor: '#FFFFFF',
@@ -1062,15 +1041,6 @@ const styles = StyleSheet.create({
   lottieAnimation: {
     width: '100%',
     height: '100%',
-  },
-  successIcon: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: '#10B981',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 24,
   },
   successTitle: {
     fontSize: 24,

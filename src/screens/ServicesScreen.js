@@ -88,7 +88,7 @@ export default function ServicesScreen({ navigation }) {
       id: "prophylaxis",
       name: "Oral Prophylaxis (Cleaning)",
       description: "Professional cleaning to remove buildup, keep your smile fresh, and prevent gum disease.",
-      image: require("../../assets/ServicesScreen/Oral.png"),
+      image: require("../../assets/ServicesScreen/atay.png"),
       category: "Preventive & General Care",
       details: {
         whatItIs: "A professional cleaning to remove hardened plaque (tartar), surface stains, and bacteria from above the gum line.",
@@ -124,7 +124,7 @@ export default function ServicesScreen({ navigation }) {
       id: "pit_fissure",
       name: "Pit and Fissure Sealant",
       description: "Protective coating applied to molars to seal grooves and prevent cavities.",
-      image: require("../../assets/ServicesScreen/image 35.png"),
+      image: require("../../assets/ServicesScreen/pit.png"),
       category: "Preventive & General Care",
       details: {
         whatItIs: "A safe, plastic coating applied to the chewing surfaces of back teeth (molars) to seal deep grooves and prevent food and bacteria from getting stuck.",
