@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 
 import {
   View,
@@ -10,19 +10,46 @@ import {
   Image,
   TextInput,
   Modal,
+  ActivityIndicator,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
-// Updated filter categories
-const serviceCategories = [
-  "All",
-  "Preventive & General Care",
-  "Restorative Care",
-  "Cosmetic Dentistry",
-  "Surgical Procedures",
-  "Orthodontics & Specialties",
-];
+// Import Firebase functions
+import { db } from '../config/firebaseConfig';
+import { collection, onSnapshot, query, where, orderBy } from 'firebase/firestore';
+
+// Updated image map - make sure these match your Firebase localImage fields exactly
+const serviceImages = {
+  'Consulation.png': require('../../assets/ServicesScreen/Consulation.png'),
+  'atay.png': require('../../assets/ServicesScreen/atay.png'),
+  'image 32.png': require('../../assets/ServicesScreen/image 32.png'), // Tooth Extraction
+  'pit.png': require('../../assets/ServicesScreen/pit.png'), // Pit and Fissure
+  'image 36.png': require('../../assets/ServicesScreen/image 36.png'), 
+  'image 37.png': require('../../assets/ServicesScreen/image 37.png'), // Fluoride Varnish
+  'image 38.png': require('../../assets/ServicesScreen/image 38.png'), // Denture
+  'image 41.png': require('../../assets/ServicesScreen/image 41.png'), // Dental Filling
+  'image 42.png': require('../../assets/ServicesScreen/image 42.png'), // Frenectomy
+  'image 43.png': require('../../assets/ServicesScreen/image 43.png'), // Gingivectomy
+  'image 44.png': require('../../assets/ServicesScreen/image 44.png'), // Dental Crown
+  'image 45.png': require('../../assets/ServicesScreen/image 45.png'), // Teeth Whitening
+  'image 54.png': require('../../assets/ServicesScreen/image 54.png'), // Orthodontic Braces
+  'Root.png': require('../../assets/ServicesScreen/Root.png'), // Root Canal
+  'Braces.png': require('../../assets/ServicesScreen/Braces.png'), // If you have this
+};
+
+// Category mapping: Display name -> Firebase value
+const categoryMapping = {
+  "All": "All",
+  "Preventive & General Care": "preventive",
+  "Restorative Care": "restorative", 
+  "Cosmetic Dentistry": "cosmetic",
+  "Surgical Procedures": "surgical",
+  "Orthodontics & Specialties": "orthodontics"
+};
+
+// Categories for display in the filter
+const serviceCategories = Object.keys(categoryMapping);
 
 export default function ServicesScreen({ navigation }) {
   const [selectedService, setSelectedService] = useState(null);
@@ -32,14 +59,60 @@ export default function ServicesScreen({ navigation }) {
   const [filterCategory, setFilterCategory] = useState("All");
   const [showFilterModal, setShowFilterModal] = useState(false);
   const [showServiceDetailsModal, setShowServiceDetailsModal] = useState(false);
+  
+  // Firebase states
+  const [services, setServices] = useState([]);
+  const [servicesLoading, setServicesLoading] = useState(true);
+  
   const itemsPerPage = 6;
+
+  // Fetch services from Firebase - Same logic as AppointmentScreen
+  useEffect(() => {
+    const servicesRef = collection(db, 'services');
+    const q = query(
+      servicesRef,
+      where('isActive', '==', true),
+      orderBy('order', 'asc')
+    );
+
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+      const fetchedServices = [];
+      querySnapshot.forEach((doc) => {
+        const serviceData = {
+          id: doc.id,
+          ...doc.data()
+        };
+        fetchedServices.push(serviceData);
+      });
+      
+      // Debug logging to see what services are being fetched
+      console.log('ServicesScreen - Fetched services count:', fetchedServices.length);
+      fetchedServices.forEach((service, index) => {
+        console.log(`ServicesScreen - Service ${index + 1}:`, {
+          id: service.id,
+          name: service.name,
+          localImage: service.localImage,
+          price: service.price,
+          category: service.category
+        });
+      });
+      
+      setServices(fetchedServices);
+      setServicesLoading(false);
+    }, (error) => {
+      console.error('ServicesScreen - Error fetching services:', error);
+      setServicesLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, []);
 
   const handleServicePress = (serviceId) => {
     setSelectedService(serviceId);
     console.log("Service selected:", serviceId);
     // Enable expansion for all services that have details
     const service = services.find(s => s.id === serviceId);
-    if (service && service.details) {
+    if (service && service.description) {
       setExpandedServices((prev) => ({
         ...prev,
         [serviceId]: !prev[serviceId],
@@ -71,221 +144,40 @@ export default function ServicesScreen({ navigation }) {
     setCurrentPage(1);
   };
 
-  const services = [
-    {
-      id: "consultation",
-      name: "Dental Consultation",
-      description: "Full check-up of teeth, gums, and mouth with advice and treatment options.",
-      image: require("../../assets/ServicesScreen/Consulation.png"),
-      category: "Preventive & General Care",
-      details: {
-        whatItIs: "A comprehensive examination and discussion where we assess your oral health, listen to your concerns, and develop a tailored treatment plan.",
-        bestFor: "Every new patient and anyone seeking professional advice on their dental health, pain, or options.",
-        price: "₱500 - ₱1,000 (often waived if proceeding with treatment)"
-      }
-    },
-    {
-      id: "prophylaxis",
-      name: "Oral Prophylaxis (Cleaning)",
-      description: "Professional cleaning to remove buildup, keep your smile fresh, and prevent gum disease.",
-      image: require("../../assets/ServicesScreen/atay.png"),
-      category: "Preventive & General Care",
-      details: {
-        whatItIs: "A professional cleaning to remove hardened plaque (tartar), surface stains, and bacteria from above the gum line.",
-        bestFor: "Everyone! Essential for preventing gum disease and cavities. Recommended every 6 months.",
-        price: "₱1,500 - ₱2,500"
-      }
-    },
-    {
-      id: "dental_filling",
-      name: "Dental Filling (Pasta)",
-      description: "Tooth-colored fillings matched to your natural teeth for a seamless smile.",
-      image: require("../../assets/ServicesScreen/image 41.png"),
-      category: "Restorative Care",
-      details: {
-        whatItIs: "The removal of decayed tooth material and the filling of the cleaned cavity with a durable, tooth-colored composite material.",
-        bestFor: "Treating cavities (tooth decay) and repairing minor tooth fractures.",
-        price: "₱1,500 - ₱3,500 (depending on size)"
-      }
-    },
-    {
-      id: "fluoride",
-      name: "Fluoride Varnish",
-      description: "Fluoride varnish coats teeth to strengthen enamel and protect against cavities.",
-      image: require("../../assets/ServicesScreen/image 37.png"),
-      category: "Preventive & General Care",
-      details: {
-        whatItIs: "The application of a highly concentrated fluoride gel to the teeth to strengthen enamel and make it more resistant to decay.",
-        bestFor: "Children, adults with a history of cavities, or those with sensitive teeth.",
-        price: "₱300 - ₱800"
-      }
-    },
-    {
-      id: "pit_fissure",
-      name: "Pit and Fissure Sealant",
-      description: "Protective coating applied to molars to seal grooves and prevent cavities.",
-      image: require("../../assets/ServicesScreen/pit.png"),
-      category: "Preventive & General Care",
-      details: {
-        whatItIs: "A safe, plastic coating applied to the chewing surfaces of back teeth (molars) to seal deep grooves and prevent food and bacteria from getting stuck.",
-        bestFor: "Children and teenagers as soon as their permanent molars come in. Also beneficial for adults with deep grooves.",
-        price: "₱800 - ₱1,500 per tooth"
-      }
-    },
-    {
-      id: "root_canal",
-      name: "Root Canal Treatment",
-      description: "Root Canal Treatment removes an infected tooth nerve and seals it to prevent reinfection.",
-      image: require("../../assets/ServicesScreen/Root.png"),
-      category: "Restorative Care",
-      details: {
-        whatItIs: "A procedure to remove infected or inflamed pulp from inside the tooth, clean and disinfect the root canals, and then seal them to prevent future infection.",
-        bestFor: "Teeth with deep decay, infection, or abscess. It relieves pain and saves the natural tooth.",
-        price: "₱8,000 - ₱15,000 (per tooth, varies by tooth type)"
-      }
-    },
-    {
-      id: "tooth_extraction",
-      name: "Tooth Extraction (Odontectomy)",
-      description: "If you have a tooth that is damaged by trauma or decay, it may require extraction.",
-      image: require("../../assets/ServicesScreen/image 32.png"),
-      category: "Surgical Procedures",
-      details: {
-        whatItIs: "The careful removal of a tooth that is too damaged, decayed, or crowded to be saved.",
-        bestFor: "Severely damaged teeth, wisdom teeth causing pain, or to prepare for braces.",
-        price: "Simple Extraction: ₱1,500 - ₱2,500 | Surgical Extraction: ₱3,000+"
-      }
-    },
-    {
-      id: "orthodontics",
-      name: "Orthodontics Braces",
-      description: "Braces straighten misaligned teeth and correct bite issues, improving appearance and oral health.",
-      image: require("../../assets/profile/image 54.png"),
-      category: "Orthodontics & Specialties",
-      details: {
-        whatItIs: "The use of fixed or removable appliances (braces, wires, aligners) to correct crooked teeth, misaligned jaws, and bad bites (malocclusion).",
-        bestFor: "Children and adults who want to improve their smile, oral function, and long-term dental health.",
-        price: "₱50,000 - ₱150,000+ (depending on case complexity)"
-      }
-    },
-    {
-      id: "teeth_whitening",
-      name: "Teeth Whitening",
-      description: "A cosmetic treatment that lightens teeth and removes stains, giving you a whiter and more confident smile.",
-      image: require("../../assets/profile/image 45.png"),
-      category: "Cosmetic Dentistry",
-      details: {
-        whatItIs: "A safe and effective cosmetic procedure that uses bleaching agents to lighten the natural color of your teeth without removing any tooth surface.",
-        bestFor: "Anyone looking to remove stains from food, drinks, or aging and achieve a brighter, more confident smile.",
-        price: "₱8,000 - ₱15,000 (for in-office treatment)"
-      }
-    },
-    {
-      id: "gingivectomy",
-      name: "Gingivectomy",
-      description: "A minor surgery that removes excess or diseased gum tissue, improving gum health and smile appearance.",
-      image: require("../../assets/ServicesScreen/image 43.png"),
-      category: "Surgical Procedures",
-      details: {
-        whatItIs: "A surgical procedure to remove and reshape diseased or excess gum tissue (gingiva).",
-        bestFor: "Treating advanced gum disease or correcting a 'gummy smile' for cosmetic purposes.",
-        price: "₱5,000 - ₱15,000 (depending on area size)"
-      }
-    },
-    {
-      id: "frenectomy",
-      name: "Frenectomy",
-      description: "A minor surgery to correct tongue-tie or lip-tie, improving speech, eating, and orthodontic care.",
-      image: require("../../assets/ServicesScreen/image 42.png"),
-      category: "Surgical Procedures",
-      details: {
-        whatItIs: "A minor surgery to loosen or remove a small fold of tissue (frenum) that connects the lips, tongue, or cheeks to the jaw.",
-        bestFor: "Correcting a tongue-tie in infants or children, or addressing gum recession or gap between teeth caused by a tight frenum.",
-        price: "₱5,000 - ₱10,000"
-      }
-    },
-    {
-      id: "denture",
-      name: "Denture",
-      description: "Custom-made dentures replace missing teeth, restoring your smile and chewing function.",
-      image: require("../../assets/ServicesScreen/image 38.png"),
-      category: "Restorative Care",
-      details: {
-        whatItIs: "Custom-made removable replacements for missing teeth and surrounding tissues.",
-        types: [
-          "Partial Denture (Postiso): Replaces one or several missing teeth.",
-          "Complete Denture: Replaces all teeth in an arch.",
-          "Retainers: Maintains tooth position after braces."
-        ],
-        price: "₱15,000 - ₱45,000+ (varies greatly by type and materials)"
-      }
-    },
-    {
-      id: "dental_crown",
-      name: "Dental Crown",
-      description: "A crown is a cap that restores a damaged tooth's strength, function, and appearance.",
-      image: require("../../assets/ServicesScreen/image 44.png"),
-      category: "Restorative Care",
-      details: {
-        whatItIs: "A custom-made 'cap' that fits over a damaged tooth to restore its shape, size, strength, and appearance.",
-        typesWeOffer: [
-          "Jacket Crown: An affordable and aesthetic option.",
-          "Porcelain Fused to Metal (PFM) Crown: Strong with a natural look.",
-          "Zirconia Crown: The strongest and most natural-looking option."
-        ],
-        price: "₱8,000 - ₱20,000 (varies by material)"
-      }
-    },
-    // Added new services for completeness based on your categories
-    {
-      id: "zirconia_crown",
-      name: "Zirconia Crown",
-      description: "Premium zirconia crowns offering superior strength and natural aesthetics.",
-      image: require("../../assets/ServicesScreen/image 44.png"),
-      category: "Cosmetic Dentistry",
-      details: {
-        whatItIs: "A premium dental crown made from zirconia, offering exceptional strength and natural tooth-like appearance.",
-        bestFor: "Patients seeking the most durable and aesthetic crown option.",
-        price: "₱15,000 - ₱25,000"
-      }
-    },
-    {
-      id: "jacket_crown",
-      name: "Jacket Crown",
-      description: "Affordable and aesthetic crown option for restoring damaged teeth.",
-      image: require("../../assets/ServicesScreen/image 44.png"),
-      category: "Cosmetic Dentistry",
-      details: {
-        whatItIs: "An affordable crown option that provides good aesthetics and function for damaged teeth.",
-        bestFor: "Patients looking for an economical crown solution with good appearance.",
-        price: "₱8,000 - ₱12,000"
-      }
-    },
-    {
-      id: "retainers",
-      name: "Retainers",
-      description: "Custom retainers to maintain tooth position after orthodontic treatment.",
-      image: require("../../assets/profile/image 54.png"),
-      category: "Orthodontics & Specialties",
-      details: {
-        whatItIs: "Custom-made appliances designed to maintain the position of teeth after braces or other orthodontic treatment.",
-        bestFor: "Anyone who has completed orthodontic treatment to prevent teeth from shifting back.",
-        price: "₱5,000 - ₱15,000"
-      }
-    },
-  ];
+  // Function to get display name for category
+  const getCategoryDisplayName = (firebaseCategory) => {
+    // Find the display name for a Firebase category value
+    const entry = Object.entries(categoryMapping).find(([displayName, fbValue]) => fbValue === firebaseCategory);
+    return entry ? entry[0] : firebaseCategory;
+  };
 
   const filteredServices = useMemo(() => {
     return services
       .filter((service) => {
-        const matchesSearch = service.name
+        const matchesSearch = (service.name || '')
           .toLowerCase()
           .includes(searchQuery.toLowerCase());
-        const matchesFilter =
-          filterCategory === "All" || service.category === filterCategory;
+        
+        // Handle category filtering with mapping
+        let matchesFilter;
+        if (filterCategory === "All") {
+          matchesFilter = true;
+        } else {
+          const firebaseCategory = categoryMapping[filterCategory];
+          matchesFilter = service.category === firebaseCategory;
+        }
+        
+        console.log('Filter debug:', {
+          serviceName: service.name,
+          serviceCategory: service.category,
+          filterCategory: filterCategory,
+          firebaseCategory: categoryMapping[filterCategory],
+          matchesFilter: matchesFilter
+        });
+        
         return matchesSearch && matchesFilter;
       })
-      .sort((a, b) => a.name.localeCompare(b.name));
+      .sort((a, b) => (a.order || 0) - (b.order || 0)); // Sort by order field from Firebase
   }, [searchQuery, filterCategory, services]);
 
   const totalPages = Math.ceil(filteredServices.length / itemsPerPage);
@@ -298,6 +190,13 @@ export default function ServicesScreen({ navigation }) {
   const selectedServiceDetails = services.find(
     (service) => service.id === selectedService
   );
+
+  // Function to format price from Firebase
+  const formatPrice = (price) => {
+    if (!price) return 'Contact for pricing';
+    if (typeof price === 'string') return price;
+    return `₱${price.toLocaleString()}`;
+  };
 
   return (
     <SafeAreaProvider>
@@ -335,64 +234,96 @@ export default function ServicesScreen({ navigation }) {
         </View>
 
         <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-          <View style={styles.servicesGrid}>
-            {currentServices.map((service) => (
-              <View key={service.id} style={styles.serviceWrapper}>
-                <TouchableOpacity
-                  style={[
-                    styles.serviceCard,
-                    selectedService === service.id && styles.serviceCardActive,
-                  ]}
-                  onPress={() => {
-                    handleServicePress(service.id);
-                    handleServiceDetailsPress(service.id);
-                  }}
-                  activeOpacity={0.8}
-                >
-                  <View style={styles.serviceContent}>
-                    <Image
-                      source={service.image}
-                      style={styles.serviceImage}
-                      resizeMode="contain"
-                    />
-                    <Text style={styles.serviceName}>{service.name}</Text>
+          {servicesLoading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color="#1290D5" />
+              <Text style={styles.loadingText}>Loading services...</Text>
+            </View>
+          ) : services.length === 0 ? (
+            <View style={styles.emptyContainer}>
+              <Text style={styles.emptyText}>No services available</Text>
+            </View>
+          ) : filteredServices.length === 0 ? (
+            <View style={styles.emptyContainer}>
+              <Text style={styles.emptyText}>No services found for "{filterCategory}"</Text>
+              <TouchableOpacity 
+                style={styles.clearFilterButton}
+                onPress={() => setFilterCategory("All")}
+              >
+                <Text style={styles.clearFilterText}>Show All Services</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <View style={styles.servicesGrid}>
+              {currentServices.map((service) => {
+                // Get the image source, fallback to consultation image if not found
+                const imageSource = serviceImages[service.localImage] || serviceImages['Consulation.png'];
+                
+                return (
+                  <View key={service.id} style={styles.serviceWrapper}>
+                    <TouchableOpacity
+                      style={[
+                        styles.serviceCard,
+                        selectedService === service.id && styles.serviceCardActive,
+                      ]}
+                      onPress={() => {
+                        handleServicePress(service.id);
+                        handleServiceDetailsPress(service.id);
+                      }}
+                      activeOpacity={0.8}
+                    >
+                      <View style={styles.serviceContent}>
+                        <Image
+                          source={imageSource}
+                          style={styles.serviceImage}
+                          resizeMode="contain"
+                          onError={(error) => {
+                            console.log('ServicesScreen - Image load error for', service.localImage, error);
+                          }}
+                        />
+                        <Text style={styles.serviceName}>{service.name || 'Unnamed Service'}</Text>
+                        <Text style={styles.servicePrice}>{formatPrice(service.price)}</Text>
+                      </View>
+                     
+                      {/* View More button inside the card */}
+                      <View style={styles.viewMoreButtonInside}>
+                        <Text style={styles.viewMoreTextInside}>view more</Text>
+                        <Ionicons name="chevron-forward" size={16} color="#1290D5" />
+                      </View>
+                    </TouchableOpacity>
                   </View>
-                 
-                  {/* View More button inside the card */}
-                  <View style={styles.viewMoreButtonInside}>
-                    <Text style={styles.viewMoreTextInside}>view more</Text>
-                    <Ionicons name="chevron-forward" size={16} color="#1290D5" />
-                  </View>
-                </TouchableOpacity>
-              </View>
-            ))}
-          </View>
+                );
+              })}
+            </View>
+          )}
         </ScrollView>
 
-        <View style={styles.paginationContainer}>
-          <TouchableOpacity
-            style={[
-              styles.paginationButton,
-              currentPage === 1 && styles.disabledButton,
-            ]}
-            onPress={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
-            disabled={currentPage === 1}
-          >
-            <Text style={styles.paginationText}>Previous Page</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[
-              styles.paginationButton,
-              currentPage === totalPages && styles.disabledButton,
-            ]}
-            onPress={() =>
-              setCurrentPage((prev) => Math.min(totalPages, prev + 1))
-            }
-            disabled={currentPage === totalPages}
-          >
-            <Text style={styles.paginationText}>Next Page</Text>
-          </TouchableOpacity>
-        </View>
+        {!servicesLoading && services.length > 0 && filteredServices.length > 0 && (
+          <View style={styles.paginationContainer}>
+            <TouchableOpacity
+              style={[
+                styles.paginationButton,
+                currentPage === 1 && styles.disabledButton,
+              ]}
+              onPress={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+              disabled={currentPage === 1}
+            >
+              <Text style={styles.paginationText}>Previous Page</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.paginationButton,
+                currentPage === totalPages && styles.disabledButton,
+              ]}
+              onPress={() =>
+                setCurrentPage((prev) => Math.min(totalPages, prev + 1))
+              }
+              disabled={currentPage === totalPages}
+            >
+              <Text style={styles.paginationText}>Next Page</Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </SafeAreaView>
 
       {/* Filter Modal */}
@@ -452,70 +383,44 @@ export default function ServicesScreen({ navigation }) {
             {selectedServiceDetails && (
               <ScrollView showsVerticalScrollIndicator={false}>
                 <Image
-                  source={selectedServiceDetails.image}
+                  source={serviceImages[selectedServiceDetails.localImage] || serviceImages['Consulation.png']}
                   style={styles.detailsModalImage}
                   resizeMode="contain"
                 />
                 <Text style={styles.detailsModalName}>
-                  {selectedServiceDetails.name}
+                  {selectedServiceDetails.name || 'Unnamed Service'}
                 </Text>
                 <Text style={styles.detailsModalDescription}>
-                  {selectedServiceDetails.description}
+                  {selectedServiceDetails.description || 'No description available.'}
                 </Text>
 
-                {/* What it is section */}
-                {selectedServiceDetails.details?.whatItIs && (
-                  <View style={styles.detailSection}>
-                    <Text style={styles.detailSectionTitle}>What it is:</Text>
-                    <Text style={styles.detailSectionText}>
-                      {selectedServiceDetails.details.whatItIs}
-                    </Text>
-                  </View>
-                )}
-
-                {/* Best for section */}
-                {selectedServiceDetails.details?.bestFor && (
-                  <View style={styles.detailSection}>
-                    <Text style={styles.detailSectionTitle}>Best for:</Text>
-                    <Text style={styles.detailSectionText}>
-                      {selectedServiceDetails.details.bestFor}
-                    </Text>
-                  </View>
-                )}
-
-                {/* Types section (for services like dentures) */}
-                {selectedServiceDetails.details?.types && (
-                  <View style={styles.detailSection}>
-                    <Text style={styles.detailSectionTitle}>Types:</Text>
-                    {selectedServiceDetails.details.types.map((type, index) => (
-                      <Text key={index} style={styles.detailListItem}>
-                        • {type}
-                      </Text>
-                    ))}
-                  </View>
-                )}
-
-                {/* Types We Offer section (for crowns) */}
-                {selectedServiceDetails.details?.typesWeOffer && (
-                  <View style={styles.detailSection}>
-                    <Text style={styles.detailSectionTitle}>Types We Offer:</Text>
-                    {selectedServiceDetails.details.typesWeOffer.map((type, index) => (
-                      <Text key={index} style={styles.detailListItem}>
-                        • {type}
-                      </Text>
-                    ))}
-                  </View>
-                )}
-
                 {/* Price section */}
-                {selectedServiceDetails.details?.price && (
+                <View style={styles.detailSection}>
+                  <Text style={styles.detailSectionTitle}>Price:</Text>
+                  <Text style={styles.detailSectionText}>
+                    {formatPrice(selectedServiceDetails.price)}
+                  </Text>
+                </View>
+
+                {/* Category section if available */}
+                {selectedServiceDetails.category && (
                   <View style={styles.detailSection}>
-                    <Text style={styles.detailSectionTitle}>Price:</Text>
+                    <Text style={styles.detailSectionTitle}>Category:</Text>
                     <Text style={styles.detailSectionText}>
-                      {selectedServiceDetails.details.price}
+                      {getCategoryDisplayName(selectedServiceDetails.category)}
                     </Text>
                   </View>
                 )}
+
+                {/* Additional info section */}
+                <View style={styles.detailSection}>
+                  <Text style={styles.detailSectionTitle}>About this service:</Text>
+                  <Text style={styles.detailSectionText}>
+                    This service is provided by our experienced dental team. 
+                    For more detailed information or to ask specific questions about this treatment, 
+                    please contact our clinic or book a consultation.
+                  </Text>
+                </View>
               </ScrollView>
             )}
           </View>
@@ -595,6 +500,39 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 20,
     paddingTop: 20,
   },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingTop: 100,
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 16,
+    color: '#666',
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingTop: 100,
+  },
+  emptyText: {
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  clearFilterButton: {
+    backgroundColor: '#1290D5',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 20,
+  },
+  clearFilterText: {
+    color: '#fff',
+    fontWeight: '600',
+  },
   servicesGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -614,7 +552,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     width: "100%",
-    height: 200,
+    height: 220,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -634,14 +572,22 @@ const styles = StyleSheet.create({
   serviceImage: {
     width: 60,
     height: 60,
-    marginBottom: 5,
+    marginBottom: 10,
   },
   serviceName: {
-    marginTop: 10,
+    marginTop: 5,
     fontSize: 14,
     color: "#333",
     textAlign: "center",
     fontWeight: "bold",
+    lineHeight: 16,
+  },
+  servicePrice: {
+    marginTop: 5,
+    fontSize: 12,
+    color: "#1290D5",
+    textAlign: "center",
+    fontWeight: "600",
   },
   // New styles for the inside view more button
   viewMoreButtonInside: {
@@ -656,20 +602,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "500",
     marginRight: 5,
-  },
-  // Remove the old external view more button styles
-  serviceDetails: {
-    marginTop: 10,
-    backgroundColor: "#f0f8ff",
-    borderRadius: 10,
-    padding: 10,
-    width: "100%",
-  },
-  detailText: {
-    fontSize: 12,
-    color: "#666",
-    marginBottom: 2,
-    textAlign: "left",
   },
   paginationContainer: {
     flexDirection: "row",
@@ -778,17 +710,7 @@ const styles = StyleSheet.create({
     color: "#555",
     textAlign: "center",
     marginBottom: 20,
-  },
-  modalDetailsList: {
-    width: "100%",
-    paddingLeft: 20,
-    alignSelf: "flex-start",
-  },
-  modalDetailText: {
-    fontSize: 14,
-    color: "#333",
-    marginBottom: 5,
-    textAlign: "left",
+    lineHeight: 22,
   },
   // Additional styles for detailed sections
   detailSection: {
@@ -805,12 +727,5 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#333",
     lineHeight: 20,
-  },
-  detailListItem: {
-    fontSize: 14,
-    color: "#333",
-    marginBottom: 3,
-    marginLeft: 10,
-    lineHeight: 18,
   },
 });

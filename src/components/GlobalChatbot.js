@@ -35,13 +35,11 @@ const GlobalChatbot = () => {
   const slideAnim = useRef(new Animated.Value(0)).current;
   const blinkAnim = useRef(new Animated.Value(1)).current;
   const eyeLookAnim = useRef(new Animated.Value(0)).current;
-  const mouthAnim = useRef(new Animated.Value(0)).current;
   const sleepBounceAnim = useRef(new Animated.Value(0)).current;
   const antennaAnim = useRef(new Animated.Value(0)).current;
   const flatListRef = useRef(null);
 
   // Timers
-  const yawnTimerRef = useRef(null);
   const sleepTimerRef = useRef(null);
   const lookAroundTimerRef = useRef(null);
 
@@ -52,7 +50,6 @@ const GlobalChatbot = () => {
     
     return () => {
       // Cleanup timers
-      if (yawnTimerRef.current) clearTimeout(yawnTimerRef.current);
       if (sleepTimerRef.current) clearTimeout(sleepTimerRef.current);
       if (lookAroundTimerRef.current) clearTimeout(lookAroundTimerRef.current);
     };
@@ -70,17 +67,18 @@ const GlobalChatbot = () => {
   // Track user interactions
   const updateInteraction = () => {
     setLastInteraction(Date.now());
-    if (robotState === 'sleeping' || robotState === 'yawning') {
+    if (robotState === 'sleeping') {
+      // Wake up the robot
       setRobotState('normal');
       // Reset animations
       Animated.parallel([
-        Animated.timing(mouthAnim, {
+        Animated.timing(sleepBounceAnim, {
           toValue: 0,
           duration: 300,
           useNativeDriver: true,
         }),
-        Animated.timing(sleepBounceAnim, {
-          toValue: 0,
+        Animated.timing(blinkAnim, {
+          toValue: 1,
           duration: 300,
           useNativeDriver: true,
         }),
@@ -108,43 +106,36 @@ const GlobalChatbot = () => {
   // Start idle behavior timers
   const startIdleAnimations = () => {
     // Clear existing timers
-    if (yawnTimerRef.current) clearTimeout(yawnTimerRef.current);
     if (sleepTimerRef.current) clearTimeout(sleepTimerRef.current);
     if (lookAroundTimerRef.current) clearTimeout(lookAroundTimerRef.current);
 
-    // Start looking around randomly
+    // Start looking around randomly (only when awake)
     const scheduleRandomLook = () => {
       const randomDelay = Math.random() * 5000 + 3000; // 3-8 seconds
       lookAroundTimerRef.current = setTimeout(() => {
         if (robotState === 'normal' && !isVisible && !isTyping) {
           performRandomLook();
         }
-        scheduleRandomLook(); // Schedule next look
+        if (robotState !== 'sleeping') {
+          scheduleRandomLook(); // Schedule next look only if not sleeping
+        }
       }, randomDelay);
     };
-    scheduleRandomLook();
+    
+    // Only schedule random looks if not sleeping
+    if (robotState !== 'sleeping') {
+      scheduleRandomLook();
+    }
 
-    // Recurring yawn every 10 seconds
-    const scheduleRecurringYawn = () => {
-      yawnTimerRef.current = setTimeout(() => {
-        if (Date.now() - lastInteraction >= 10000 && !isVisible && !isTyping) {
-          performYawn();
-        }
-        scheduleRecurringYawn(); // Schedule next yawn
-      }, 10000);
-    };
-    scheduleRecurringYawn();
-
-    // Recurring sleep every 15 seconds
-    const scheduleRecurringSleep = () => {
+    // Sleep after 10 seconds of inactivity
+    const scheduleSleep = () => {
       sleepTimerRef.current = setTimeout(() => {
-        if (Date.now() - lastInteraction >= 15000 && !isVisible && !isTyping) {
+        if (Date.now() - lastInteraction >= 10000 && !isVisible && !isTyping && robotState !== 'sleeping') {
           performSleep();
         }
-        scheduleRecurringSleep(); // Schedule next sleep
-      }, 15000);
+      }, 10000);
     };
-    scheduleRecurringSleep();
+    scheduleSleep();
   };
 
   // Random look animation
@@ -171,38 +162,6 @@ const GlobalChatbot = () => {
     ]).start(() => {
       if (robotState === 'looking_left' || robotState === 'looking_right') {
         setRobotState('normal');
-      }
-    });
-  };
-
-  // Yawn animation
-  const performYawn = () => {
-    setRobotState('yawning');
-    
-    Animated.sequence([
-      // Open mouth wide
-      Animated.timing(mouthAnim, {
-        toValue: 1,
-        duration: 800,
-        useNativeDriver: true,
-      }),
-      // Hold yawn
-      Animated.delay(1200),
-      // Close mouth
-      Animated.timing(mouthAnim, {
-        toValue: 0,
-        duration: 600,
-        useNativeDriver: true,
-      }),
-    ]).start(() => {
-      if (robotState === 'yawning') {
-        setRobotState('normal');
-        // Schedule sleep check
-        sleepTimerRef.current = setTimeout(() => {
-          if (Date.now() - lastInteraction >= 15000 && !isVisible && !isTyping) {
-            performSleep();
-          }
-        }, 5000);
       }
     });
   };
@@ -259,8 +218,12 @@ const GlobalChatbot = () => {
       }
     }, 2000 + Math.random() * 3000); // Random blink interval
 
-    return () => clearInterval(blinkInterval);
-  }, [robotState]);
+    return () => {
+      if (blinkInterval) {
+        clearInterval(blinkInterval);
+      }
+    };
+  }, [robotState, blinkAnim]);
 
   // Robot antenna pulsing animation
   useEffect(() => {
@@ -279,8 +242,13 @@ const GlobalChatbot = () => {
       ])
     );
     antennaAnimation.start();
-    return () => antennaAnimation.stop();
-  }, []);
+    
+    return () => {
+      if (antennaAnimation && antennaAnimation.stop) {
+        antennaAnimation.stop();
+      }
+    };
+  }, [antennaAnim]);
 
   const loadMessages = async () => {
     try {
@@ -640,22 +608,6 @@ const GlobalChatbot = () => {
               {
                 backgroundColor: isCurrentlyTyping ? '#FFD700' : 
                                currentState === 'sleeping' ? '#90A4AE' : '#00BFFF',
-                transform: [
-                  { 
-                    scaleY: currentState === 'yawning' ? 
-                      mouthAnim.interpolate({
-                        inputRange: [0, 1],
-                        outputRange: [1, 3]
-                      }) : 1 
-                  },
-                  { 
-                    scaleX: currentState === 'yawning' ? 
-                      mouthAnim.interpolate({
-                        inputRange: [0, 1],
-                        outputRange: [1, 1.5]
-                      }) : 1 
-                  }
-                ]
               }
             ]} 
           />
@@ -861,22 +813,6 @@ const GlobalChatbot = () => {
                 styles.fabRobotMouth,
                 {
                   backgroundColor: robotState === 'sleeping' ? '#90A4AE' : '#E3F2FD',
-                  transform: [
-                    { 
-                      scaleY: robotState === 'yawning' ? 
-                        mouthAnim.interpolate({
-                          inputRange: [0, 1],
-                          outputRange: [1, 2.5]
-                        }) : 1 
-                    },
-                    { 
-                      scaleX: robotState === 'yawning' ? 
-                        mouthAnim.interpolate({
-                          inputRange: [0, 1],
-                          outputRange: [1, 1.3]
-                        }) : 1 
-                    }
-                  ]
                 }
               ]} 
             />

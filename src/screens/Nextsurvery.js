@@ -1,17 +1,23 @@
 import { useState, useRef, useEffect } from "react"
-import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, ScrollView, Image, TextInput, KeyboardAvoidingView, Platform, Animated } from "react-native"
+import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, ScrollView, Image, TextInput, KeyboardAvoidingView, Platform, Alert } from "react-native"
 import { Ionicons } from "@expo/vector-icons"
 import { SafeAreaProvider } from "react-native-safe-area-context"
+import { doc, updateDoc, serverTimestamp } from 'firebase/firestore'
+import { db, auth } from '../config/firebaseConfig' // Adjust this path to your firebaseConfig.js location
 
 // The path to your local clinic logo image
 const FANODENTAL_LOGO = require("../../assets/Login/q.png")
 
-export default function Nextsurvey({ navigation }) {
+export default function Nextsurvey({ navigation, route }) {
   const [waitingTimeRating, setWaitingTimeRating] = useState(0)
   const [clinicEnvRating, setClinicEnvRating] = useState(0)
   const [treatmentRating, setTreatmentRating] = useState(0)
   const [openFeedback, setOpenFeedback] = useState("")
   const [showConfirmation, setShowConfirmation] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
+
+  // Get the survey ID from navigation params
+  const { surveyId } = route.params || {}
 
   // Create a ref for the ScrollView to enable manual scrolling
   const scrollViewRef = useRef(null)
@@ -23,16 +29,63 @@ export default function Nextsurvey({ navigation }) {
     setter(value)
   }
 
-  const handleSubmit = () => {
+  const updateSurveyInFirebase = async (additionalData) => {
+    try {
+      setIsLoading(true)
+      
+      if (!surveyId) {
+        throw new Error("Survey ID not found")
+      }
+
+      const surveyRef = doc(db, 'surveys', surveyId)
+      
+      await updateDoc(surveyRef, {
+        ...additionalData,
+        completedAt: serverTimestamp(),
+        surveyStage: 'completed',
+        isComplete: true
+      })
+      
+      console.log("Survey updated successfully")
+      return true
+    } catch (error) {
+      console.error("Error updating survey: ", error)
+      Alert.alert("Error", "Failed to save survey data. Please try again.")
+      return false
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleSubmit = async () => {
+    // Validation
+    if (waitingTimeRating === 0 || clinicEnvRating === 0 || treatmentRating === 0) {
+      Alert.alert("Incomplete Survey", "Please rate all questions before submitting.")
+      return
+    }
+
     console.log("Survey submitted!")
     console.log("Waiting Time Rating:", waitingTimeRating)
     console.log("Clinic Environment Rating:", clinicEnvRating)
     console.log("Treatment Satisfaction Rating:", treatmentRating)
     console.log("Open Feedback:", openFeedback)
 
-    // Show the confirmation pop-up
-    setShowConfirmation(true)
+    // Prepare additional data for Firebase
+    const additionalData = {
+      waitingTime: waitingTimeRating,
+      clinicEnvironment: clinicEnvRating,
+      treatmentSatisfaction: treatmentRating,
+      openFeedback: openFeedback.trim(),
+      feedbackLength: openFeedback.trim().length
+    }
 
+    // Update the survey in Firebase
+    const success = await updateSurveyInFirebase(additionalData)
+    
+    if (success) {
+      // Show the confirmation pop-up
+      setShowConfirmation(true)
+    }
   }
   
   const handleReturnToHome = () => {
@@ -102,14 +155,14 @@ export default function Nextsurvey({ navigation }) {
 
             <SurveyQuestion
               title="Clinic Environment"
-              subtitle="How satisfied are you with your recent dental appointment?"
+              subtitle="How satisfied are you with the clinic environment and cleanliness?"
               rating={clinicEnvRating}
               onRatingPress={(value) => handleRatingPress(setClinicEnvRating, value)}
             />
 
             <SurveyQuestion
               title="Treatment Satisfaction"
-              subtitle="How satisfied are you with your recent dental appointment?"
+              subtitle="How satisfied are you with the treatment you received?"
               rating={treatmentRating}
               onRatingPress={(value) => handleRatingPress(setTreatmentRating, value)}
             />
@@ -125,13 +178,21 @@ export default function Nextsurvey({ navigation }) {
                 value={openFeedback}
                 placeholder="Type your feedback here..."
                 placeholderTextColor="#ccc"
+                maxLength={500} // Limit feedback length
               />
+              <Text style={styles.characterCount}>{openFeedback.length}/500</Text>
             </View>
 
             {/* Submit Button */}
             <View style={styles.submitButtonContainer}>
-              <TouchableOpacity style={styles.submitButton} onPress={handleSubmit}>
-                <Text style={styles.submitButtonText}>Submit</Text>
+              <TouchableOpacity 
+                style={[styles.submitButton, isLoading && styles.submitButtonDisabled]} 
+                onPress={handleSubmit}
+                disabled={isLoading}
+              >
+                <Text style={styles.submitButtonText}>
+                  {isLoading ? "Submitting..." : "Submit"}
+                </Text>
               </TouchableOpacity>
             </View>
           </ScrollView>
@@ -224,13 +285,19 @@ const styles = StyleSheet.create({
     color: "#333",
     textAlignVertical: "top",
   },
+  characterCount: {
+    textAlign: "right",
+    fontSize: 12,
+    color: "#999",
+    marginTop: 5,
+  },
   submitButtonContainer: {
     alignItems: "center",
     marginTop: 30,
   },
   submitButton: {
     backgroundColor: "#4A90E2",
-    width: 100,
+    width: 120,
     height: 50,
     borderRadius: 25,
     justifyContent: "center",
@@ -243,6 +310,9 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 5,
+  },
+  submitButtonDisabled: {
+    backgroundColor: "#ccc",
   },
   submitButtonText: {
     color: "#fff",

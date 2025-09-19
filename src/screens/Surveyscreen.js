@@ -1,16 +1,18 @@
 import { useState } from "react"
-import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, ScrollView, Image } from "react-native"
+import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, ScrollView, Image, Alert } from "react-native"
 import { Ionicons } from "@expo/vector-icons"
 import { SafeAreaProvider } from "react-native-safe-area-context"
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore'
+import { db, auth } from '../config/firebaseConfig' // Adjust this path to your firebaseConfig.js location
 
 // The path to your local clinic logo image
 const FANODENTAL_LOGO = require("../../assets/Login/q.png")
-
 
 export default function SurveyScreen({ navigation }) {
   const [overallRating, setOverallRating] = useState(0)
   const [dentistRating, setDentistRating] = useState(0)
   const [staffRating, setStaffRating] = useState(0)
+  const [isLoading, setIsLoading] = useState(false)
 
   // Array to make rendering the rating circles dynamic
   const ratingOptions = [1, 2, 3, 4, 5]
@@ -19,14 +21,56 @@ export default function SurveyScreen({ navigation }) {
     setter(value)
   }
 
-  const handleSubmit = () => {
+  const saveSurveyDataToFirebase = async (surveyData) => {
+    try {
+      setIsLoading(true)
+      const surveysCollection = collection(db, 'surveys')
+      
+      const docRef = await addDoc(surveysCollection, {
+        ...surveyData,
+        userId: auth.currentUser?.uid || 'anonymous',
+        userEmail: auth.currentUser?.email || null,
+        timestamp: serverTimestamp(),
+        surveyStage: 'first_page' // To track which part of survey
+      })
+      
+      console.log("Survey data saved with ID: ", docRef.id)
+      return docRef.id
+    } catch (error) {
+      console.error("Error saving survey data: ", error)
+      Alert.alert("Error", "Failed to save survey data. Please try again.")
+      return null
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleSubmit = async () => {
+    // Validation
+    if (overallRating === 0 || dentistRating === 0 || staffRating === 0) {
+      Alert.alert("Incomplete Survey", "Please rate all questions before proceeding.")
+      return
+    }
+
     console.log("Survey submitted!")
     console.log("Overall Rating:", overallRating)
     console.log("Dentist Rating:", dentistRating)
     console.log("Staff Rating:", staffRating)
 
-    // Navigate to the next survey screen
-    navigation.navigate("Nextsurvey");
+    // Prepare data for Firebase
+    const surveyData = {
+      overallSatisfaction: overallRating,
+      dentistProfessionalism: dentistRating,
+      staffAssistance: staffRating
+    }
+
+    // Save to Firebase
+    const surveyId = await saveSurveyDataToFirebase(surveyData)
+    
+    if (surveyId) {
+      // Navigate to the next survey screen with the survey ID
+      navigation.navigate("Nextsurvey", { surveyId: surveyId });
+    }
   }
 
   // A reusable component for each survey question
@@ -100,8 +144,14 @@ export default function SurveyScreen({ navigation }) {
 
           {/* Submit Button */}
           <View style={styles.submitButtonContainer}>
-            <TouchableOpacity style={styles.submitButton} onPress={handleSubmit}>
-              <Text style={styles.submitButtonText}>Next</Text>
+            <TouchableOpacity 
+              style={[styles.submitButton, isLoading && styles.submitButtonDisabled]} 
+              onPress={handleSubmit}
+              disabled={isLoading}
+            >
+              <Text style={styles.submitButtonText}>
+                {isLoading ? "Saving..." : "Next"}
+              </Text>
             </TouchableOpacity>
           </View>
         </ScrollView>
@@ -197,6 +247,9 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 5,
+  },
+  submitButtonDisabled: {
+    backgroundColor: "#ccc",
   },
   submitButtonText: {
     color: "#fff",

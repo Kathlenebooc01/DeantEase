@@ -34,19 +34,7 @@ const MessagesScreen = ({ navigation }) => {
         status: "Available",
         avatarColor: "#FF6B6B",
       },
-      {
-        id: "jane-sy",
-        name: "Jane Sy",
-        lastMessage: "Welcome! You can send messages to Jane Sy.",
-        time: getCurrentTime(),
-        timestamp: new Date(),
-        unreadCount: 0,
-        isAI: false,
-        avatar: "person",
-        isOnline: Math.random() > 0.5,
-        status: Math.random() > 0.5 ? "Available" : "Busy",
-        avatarColor: "#4ECDC4",
-      },
+      
     ];
   };
 
