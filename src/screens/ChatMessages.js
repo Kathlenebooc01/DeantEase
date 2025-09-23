@@ -1,4 +1,3 @@
-// screens/ChatMessages.js - Updated for your Firebase structure
 import React, { useState, useEffect, useContext } from "react";
 import {
   View,
@@ -13,13 +12,24 @@ import {
   ActivityIndicator,
   Modal,
   Animated,
-  Image,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { UserContext } from '../context/UserContext';
-import { collection, doc, addDoc, setDoc, getDoc, onSnapshot, query, orderBy, serverTimestamp } from "firebase/firestore";
-import { db } from '../config/firebaseConfig';
+import { LinearGradient } from "expo-linear-gradient";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { UserContext } from "../context/UserContext";
+import {
+  collection,
+  doc,
+  addDoc,
+  setDoc,
+  getDoc,
+  getDocs,
+  onSnapshot,
+  query,
+  orderBy,
+  serverTimestamp,
+} from "firebase/firestore";
+import { db } from "../config/firebaseConfig";
 
 const ChatMessages = ({ navigation, route }) => {
   const { contact } = route.params;
@@ -30,6 +40,30 @@ const ChatMessages = ({ navigation, route }) => {
   const { userProfile } = useContext(UserContext);
   const [showPopup, setShowPopup] = useState(false);
   const [popupOpacity] = useState(new Animated.Value(0));
+
+  // Utility function to get initials from a name
+  const getInitials = (name) => {
+    if (!name) return "??";
+    const words = name.split(" ").filter((word) => word);
+    let initials = "";
+    if (words.length >= 2) {
+      initials = words[0][0] + words[words.length - 1][0];
+    } else if (words.length === 1) {
+      initials = words[0][0];
+    }
+    return initials.toUpperCase();
+  };
+
+  useEffect(() => {
+    navigation.setOptions({
+      title: contact.name,
+      headerRight: () => (
+        <TouchableOpacity style={styles.headerButton} onPress={clearChat}>
+          <Ionicons name="refresh-outline" size={20} color="#666" />
+        </TouchableOpacity>
+      ),
+    });
+  }, [navigation, contact.name]);
 
   useEffect(() => {
     if (!userProfile?.id) return;
@@ -48,26 +82,38 @@ const ChatMessages = ({ navigation, route }) => {
       "messages"
     );
     const messagesQuery = query(messagesRef, orderBy("timestamp", "asc"));
-    const unsubscribe = onSnapshot(messagesQuery, (snapshot) => {
-      const firebaseMessages = snapshot.docs.map(doc => {
-        const data = doc.data();
-        return {
-          id: doc.id,
-          text: data.text || "",
-          time: data.timestamp?.toDate ? data.timestamp.toDate().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }) : getCurrentTime(),
-          isFromUser: data.senderType === 'user',
-          sender: data.senderName || (data.senderType === 'admin' ? contact.name : userProfile?.name || "You"),
-          isSystemMessage: data.senderType === 'system',
-          timestamp: data.timestamp?.toDate ? data.timestamp.toDate() : new Date(),
-          senderType: data.senderType || 'user'
-        };
-      });
-      setMessages(firebaseMessages);
-      saveMessagesToStorage(firebaseMessages);
-    }, (error) => {
-      console.error("Firebase listener error:", error);
-      loadMessagesFromStorage();
-    });
+    const unsubscribe = onSnapshot(
+      messagesQuery,
+      (snapshot) => {
+        const firebaseMessages = snapshot.docs.map((doc) => {
+          const data = doc.data();
+          return {
+            id: doc.id,
+            text: data.text || "",
+            time: data.timestamp?.toDate
+              ? data.timestamp.toDate().toLocaleTimeString("en-US", {
+                  hour: "numeric",
+                  minute: "2-digit",
+                  hour12: true,
+                })
+              : getCurrentTime(),
+            isFromUser: data.senderType === "user",
+            sender:
+              data.senderName ||
+              (data.senderType === "admin" ? contact.name : userProfile?.name || "You"),
+            isSystemMessage: data.senderType === "system",
+            timestamp: data.timestamp?.toDate ? data.timestamp.toDate() : new Date(),
+            senderType: data.senderType || "user",
+          };
+        });
+        setMessages(firebaseMessages);
+        saveMessagesToStorage(firebaseMessages);
+      },
+      (error) => {
+        console.error("Firebase listener error:", error);
+        loadMessagesFromStorage();
+      }
+    );
     return () => unsubscribe();
   };
 
@@ -87,19 +133,32 @@ const ChatMessages = ({ navigation, route }) => {
           lastMessage: "",
           lastMessageTime: serverTimestamp(),
           lastMessageSender: "",
-          createdAt: serverTimestamp()
+          createdAt: serverTimestamp(),
         });
         const messagesRef = collection(db, "chat_rooms", contact.id, "user_conversations", userProfile.id, "messages");
         await addDoc(messagesRef, {
           text: `Welcome! You can send messages to ${contact.name}. ${doctorOnlineStatus ? "They are online and will respond soon." : "They will respond when they're available."}`,
-          senderId: 'system',
-          senderName: 'System',
-          senderType: 'system',
-          timestamp: serverTimestamp()
+          senderId: "system",
+          senderName: "System",
+          senderType: "system",
+          timestamp: serverTimestamp(),
         });
+      } else {
+        const messagesRef = collection(db, "chat_rooms", contact.id, "user_conversations", userProfile.id, "messages");
+        const messagesQuery = query(messagesRef, orderBy("timestamp", "asc"));
+        const messagesSnapshot = await getDocs(messagesQuery);
+        if (messagesSnapshot.empty) {
+          await addDoc(messagesRef, {
+            text: `Welcome! You can send messages to ${contact.name}. ${doctorOnlineStatus ? "They are online and will respond soon." : "They will respond when they're available."}`,
+            senderId: "system",
+            senderName: "System",
+            senderType: "system",
+            timestamp: serverTimestamp(),
+          });
+        }
       }
     } catch (error) {
-      console.error('Error setting up Firebase conversation:', error);
+      console.error("Error setting up Firebase conversation:", error);
       loadMessagesFromStorage();
     }
   };
@@ -110,31 +169,59 @@ const ChatMessages = ({ navigation, route }) => {
       if (storedMessages) {
         setMessages(JSON.parse(storedMessages));
       } else {
-        const initialMessage = { id: "welcome_1", text: `Welcome! You can send messages to ${contact.name}. ${doctorOnlineStatus ? "" : "They will respond when they're available."}`, time: getCurrentTime(), isFromUser: false, sender: contact.name, isSystemMessage: true };
+        const initialMessage = {
+          id: "welcome_1",
+          text: `Welcome! You can send messages to ${contact.name}. ${doctorOnlineStatus ? "" : "They will respond when they're available."}`,
+          time: getCurrentTime(),
+          isFromUser: false,
+          sender: contact.name,
+          isSystemMessage: true,
+        };
         setMessages([initialMessage]);
+        await saveMessagesToStorage([initialMessage]);
       }
     } catch (error) {
-      console.error('Error loading messages from storage:', error);
-      const initialMessage = { id: "welcome_1", text: `Welcome! You can send messages to ${contact.name}. ${doctorOnlineStatus ? "" : "They will respond when they're available."}`, time: getCurrentTime(), isFromUser: false, sender: contact.name, isSystemMessage: true };
+      console.error("Error loading messages from storage:", error);
+      const initialMessage = {
+        id: "welcome_1",
+        text: `Welcome! You can send messages to ${contact.name}. ${doctorOnlineStatus ? "" : "They will respond when they're available."}`,
+        time: getCurrentTime(),
+        isFromUser: false,
+        sender: contact.name,
+        isSystemMessage: true,
+      };
       setMessages([initialMessage]);
+      await saveMessagesToStorage([initialMessage]);
     }
   };
 
   const saveMessagesToStorage = async (messagesToSave = messages) => {
     try {
-      await AsyncStorage.setItem(`chat_${contact.id}`, JSON.stringify(messagesToSave));
+      const serializableMessages = messagesToSave.map((msg) => ({
+        ...msg,
+        timestamp: msg.timestamp instanceof Date ? msg.timestamp.toISOString() : msg.timestamp,
+      }));
+      await AsyncStorage.setItem(`chat_${contact.id}`, JSON.stringify(serializableMessages));
     } catch (error) {
-      console.error('Error saving messages to storage:', error);
+      console.error("Error saving messages to storage:", error);
     }
   };
 
-  const getCurrentTime = () => new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+  const getCurrentTime = () => new Date().toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
 
   const showPopupNotification = () => {
     setShowPopup(true);
-    Animated.timing(popupOpacity, { toValue: 1, duration: 300, useNativeDriver: true }).start();
+    Animated.timing(popupOpacity, {
+      toValue: 1,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
     setTimeout(() => {
-      Animated.timing(popupOpacity, { toValue: 0, duration: 300, useNativeDriver: true }).start(() => {
+      Animated.timing(popupOpacity, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: true,
+      }).start(() => {
         setShowPopup(false);
       });
     }, 2000);
@@ -145,8 +232,14 @@ const ChatMessages = ({ navigation, route }) => {
     if (messageText === "") return;
     setInputText("");
     setIsTyping(true);
-    const userMessage = { id: Date.now().toString(), text: messageText, time: getCurrentTime(), isFromUser: true, sender: userProfile?.name || "You" };
-    setMessages(prev => [...prev, userMessage]);
+    const userMessage = {
+      id: Date.now().toString(),
+      text: messageText,
+      time: getCurrentTime(),
+      isFromUser: true,
+      sender: userProfile?.name || "You",
+    };
+    setMessages((prev) => [...prev, userMessage]);
     try {
       if (!userProfile?.id) throw new Error("User profile not found");
       const messagesRef = collection(db, "chat_rooms", contact.id, "user_conversations", userProfile.id, "messages");
@@ -154,25 +247,37 @@ const ChatMessages = ({ navigation, route }) => {
         text: messageText,
         senderId: userProfile.id,
         senderName: userProfile.name || userProfile.fullName || "You",
-        senderType: 'user',
-        timestamp: serverTimestamp()
+        senderType: "user",
+        timestamp: serverTimestamp(),
       });
       const userConversationRef = doc(db, "chat_rooms", contact.id, "user_conversations", userProfile.id);
-      await setDoc(userConversationRef, {
-        userId: userProfile.id,
-        userName: userProfile.name || userProfile.fullName || "User",
-        userEmail: userProfile.email || "",
-        lastMessage: messageText,
-        lastMessageTime: serverTimestamp(),
-        lastMessageSender: "user"
-      }, { merge: true });
+      await setDoc(
+        userConversationRef,
+        {
+          userId: userProfile.id,
+          userName: userProfile.name || userProfile.fullName || "User",
+          userEmail: userProfile.email || "",
+          lastMessage: messageText,
+          lastMessageTime: serverTimestamp(),
+          lastMessageSender: "user",
+        },
+        { merge: true }
+      );
       setIsTyping(false);
       showPopupNotification();
     } catch (error) {
-      console.error('Error sending message to Firebase:', error);
+      console.error("Error sending message to Firebase:", error);
       setIsTyping(false);
-      const errorMessage = { id: (Date.now() + 1).toString(), text: "Message saved locally. Will sync when connection is restored.", time: getCurrentTime(), isFromUser: false, sender: "System", isSystemMessage: true, isError: false };
-      setMessages(prev => [...prev, errorMessage]);
+      const errorMessage = {
+        id: (Date.now() + 1).toString(),
+        text: "Message saved locally. Will sync when connection is restored.",
+        time: getCurrentTime(),
+        isFromUser: false,
+        sender: "System",
+        isSystemMessage: true,
+        isError: false,
+      };
+      setMessages((prev) => [...prev, errorMessage]);
       saveMessagesToStorage([...messages, userMessage, errorMessage]);
       showPopupNotification();
     }
@@ -181,9 +286,39 @@ const ChatMessages = ({ navigation, route }) => {
   const clearChat = async () => {
     try {
       await AsyncStorage.removeItem(`chat_${contact.id}`);
+      if (userProfile?.id) {
+        const messagesRef = collection(db, "chat_rooms", contact.id, "user_conversations", userProfile.id, "messages");
+        const querySnapshot = await getDocs(messagesRef);
+        const deletePromises = querySnapshot.docs.map((doc) => deleteDoc(doc.ref));
+        await Promise.all(deletePromises);
+
+        const userConversationRef = doc(db, "chat_rooms", contact.id, "user_conversations", userProfile.id);
+        await setDoc(
+          userConversationRef,
+          {
+            userId: userProfile.id,
+            userName: userProfile.name || userProfile.fullName || "User",
+            userEmail: userProfile.email || "",
+            lastMessage: "",
+            lastMessageTime: serverTimestamp(),
+            lastMessageSender: "",
+            createdAt: serverTimestamp(),
+          },
+          { merge: true }
+        );
+
+        await addDoc(messagesRef, {
+          text: `Welcome! You can send messages to ${contact.name}. ${doctorOnlineStatus ? "They are online and will respond soon." : "They will respond when they're available."}`,
+          senderId: "system",
+          senderName: "System",
+          senderType: "system",
+          timestamp: serverTimestamp(),
+        });
+      }
       setMessages([]);
+      loadMessagesFromFirebase();
     } catch (error) {
-      console.error('Error clearing chat:', error);
+      console.error("Error clearing chat:", error);
     }
   };
 
@@ -191,23 +326,57 @@ const ChatMessages = ({ navigation, route }) => {
     <View style={[styles.messageRow, item.isFromUser ? styles.userRow : styles.botRow]}>
       {!item.isFromUser && (
         <View style={[styles.avatar, item.isSystemMessage && styles.systemAvatar]}>
-          <Ionicons name={item.isSystemMessage ? "information-circle" : "person"} size={20} color={item.isSystemMessage ? "#666" : "#666"} />
+          {item.isSystemMessage ? (
+            <Ionicons name="information-circle" size={20} color="#666" />
+          ) : (
+            <LinearGradient colors={[contact.avatarColor || "#FF6B6B", `${contact.avatarColor || "#FF6B6B"}AA`]} style={styles.avatar}>
+              <Text style={styles.avatarText}>{getInitials(contact.name)}</Text>
+            </LinearGradient>
+          )}
         </View>
       )}
-      <View style={[styles.bubbleContainer, item.isFromUser ? styles.userBubble : styles.botBubble, item.isSystemMessage && styles.systemBubble, item.isError && styles.errorBubble]}>
-        {!item.isFromUser && (<Text style={[styles.senderText, item.isSystemMessage && styles.systemSenderText]}>{item.sender}</Text>)}
-        <Text style={[styles.messageText, item.isFromUser ? styles.userMessageText : styles.botMessageText, item.isSystemMessage && styles.systemMessageText, item.isError && styles.errorMessageText]}>{item.text}</Text>
-        <Text style={[styles.messageTime, item.isFromUser ? styles.userMessageTime : styles.botMessageTime, item.isSystemMessage && styles.systemMessageTime]}>{item.time}</Text>
+      <View
+        style={[
+          styles.bubbleContainer,
+          item.isFromUser ? styles.userBubble : styles.botBubble,
+          item.isSystemMessage && styles.systemBubble,
+          item.isError && styles.errorBubble,
+        ]}
+      >
+        {!item.isFromUser && (
+          <Text style={[styles.senderText, item.isSystemMessage && styles.systemSenderText]}>{item.sender}</Text>
+        )}
+        <Text
+          style={[
+            styles.messageText,
+            item.isFromUser ? styles.userMessageText : styles.botMessageText,
+            item.isSystemMessage && styles.systemMessageText,
+            item.isError && styles.errorMessageText,
+          ]}
+        >
+          {item.text}
+        </Text>
+        <Text
+          style={[
+            styles.messageTime,
+            item.isFromUser ? styles.userMessageTime : styles.botMessageTime,
+            item.isSystemMessage && styles.systemMessageTime,
+          ]}
+        >
+          {item.time}
+        </Text>
       </View>
       {item.isFromUser && (
         <View style={styles.avatar}>
-          {userProfile?.profileImage?.uri ? (<Image source={{ uri: userProfile.profileImage.uri }} style={styles.profileImage} />) : (<Ionicons name="person" size={20} color="#666" />)}
+          <LinearGradient colors={["#4ECDC4", "#4ECDC4AA"]} style={styles.avatar}>
+            <Text style={styles.avatarText}>{getInitials(userProfile?.name || "You")}</Text>
+          </LinearGradient>
         </View>
       )}
     </View>
   );
 
-  const renderTypingIndicator = () => (
+  const renderTypingIndicator = () =>
     isTyping && (
       <View style={[styles.messageRow, styles.botRow]}>
         <View style={[styles.avatar, styles.systemAvatar]}>
@@ -223,8 +392,7 @@ const ChatMessages = ({ navigation, route }) => {
           </View>
         </View>
       </View>
-    )
-  );
+    );
 
   const PopupNotification = () => (
     <Modal transparent={true} visible={showPopup} animationType="none" pointerEvents="none">
@@ -243,7 +411,9 @@ const ChatMessages = ({ navigation, route }) => {
     <SafeAreaView style={styles.safeArea}>
       <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === "ios" ? "padding" : "height"}>
         <View style={styles.header}>
-          <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}><Ionicons name="chevron-back" size={24} color="#000" /></TouchableOpacity>
+          <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+            <Ionicons name="chevron-back" size={24} color="#000" />
+          </TouchableOpacity>
           <View style={styles.headerInfo}>
             <Text style={styles.headerTitle}>{contact.name}</Text>
             <View style={styles.statusContainer}>
@@ -251,7 +421,9 @@ const ChatMessages = ({ navigation, route }) => {
               <Text style={styles.headerSubtitle}>{doctorOnlineStatus ? "Online" : "Last seen recently"}</Text>
             </View>
           </View>
-          <TouchableOpacity style={styles.headerButton} onPress={clearChat}><Ionicons name="refresh-outline" size={20} color="#666" /></TouchableOpacity>
+          <TouchableOpacity style={styles.headerButton} onPress={clearChat}>
+            <Ionicons name="refresh-outline" size={20} color="#666" />
+          </TouchableOpacity>
         </View>
         <FlatList
           data={messages}
@@ -275,7 +447,11 @@ const ChatMessages = ({ navigation, route }) => {
               returnKeyType="send"
               onSubmitEditing={handleSend}
             />
-            <TouchableOpacity style={[styles.sendButton, (inputText.trim() === "" || isTyping) && { opacity: 0.5 }]} onPress={handleSend} disabled={inputText.trim() === "" || isTyping}>
+            <TouchableOpacity
+              style={[styles.sendButton, (inputText.trim() === "" || isTyping) && { opacity: 0.5 }]}
+              onPress={handleSend}
+              disabled={inputText.trim() === "" || isTyping}
+            >
               <Ionicons name="send" size={18} color="#fff" />
             </TouchableOpacity>
           </View>
@@ -285,14 +461,15 @@ const ChatMessages = ({ navigation, route }) => {
     </SafeAreaView>
   );
 };
+
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: "#FFF6F0"
+    backgroundColor: "#ffffffff",
   },
   container: {
     flex: 1,
-    backgroundColor: "#E8EAEF"
+    backgroundColor: "#E8EAEF",
   },
   header: {
     backgroundColor: "#FFFFFF",
@@ -303,10 +480,9 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: "rgba(0,0,0,0.05)",
     marginTop: Platform.OS === "android" ? 25 : 0,
-    marginTop: 1,
   },
   backButton: {
-    marginRight: 15
+    marginRight: 15,
   },
   headerInfo: {
     flex: 1,
@@ -314,7 +490,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 20,
     fontWeight: "600",
-    color: "#000"
+    color: "#000",
   },
   statusContainer: {
     flexDirection: "row",
@@ -335,40 +511,38 @@ const styles = StyleSheet.create({
     padding: 8,
   },
   messagesList: {
-    flex: 1
+    flex: 1,
   },
   messagesContainer: {
     paddingHorizontal: 15,
-    paddingVertical: 20
+    paddingVertical: 20,
   },
   messageRow: {
     flexDirection: "row",
     marginBottom: 15,
-    width: "100%"
+    width: "100%",
   },
   userRow: {
-    justifyContent: "flex-end"
+    justifyContent: "flex-end",
   },
   botRow: {
-    justifyContent: "flex-start"
+    justifyContent: "flex-start",
   },
   avatar: {
     width: 35,
     height: 35,
     borderRadius: 17.5,
-    backgroundColor: "#f0f0f0",
     justifyContent: "center",
     alignItems: "center",
     marginHorizontal: 6,
-    overflow: 'hidden',
-  },
-  profileImage: {
-    width: '100%',
-    height: '100%',
-    borderRadius: 17.5,
   },
   systemAvatar: {
     backgroundColor: "#e8e8e8",
+  },
+  avatarText: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#FFFFFF",
   },
   bubbleContainer: {
     maxWidth: "75%",
@@ -378,7 +552,7 @@ const styles = StyleSheet.create({
   },
   userBubble: {
     backgroundColor: "#004C9C",
-    borderTopRightRadius: 5
+    borderTopRightRadius: 5,
   },
   botBubble: {
     backgroundColor: "#FFFFFF",
@@ -413,13 +587,13 @@ const styles = StyleSheet.create({
   },
   messageText: {
     fontSize: 15.5,
-    lineHeight: 21
+    lineHeight: 21,
   },
   userMessageText: {
-    color: "#fff"
+    color: "#fff",
   },
   botMessageText: {
-    color: "#000"
+    color: "#000",
   },
   systemMessageText: {
     color: "#555",
@@ -430,35 +604,35 @@ const styles = StyleSheet.create({
   },
   messageTime: {
     fontSize: 12,
-    marginTop: 5
+    marginTop: 5,
   },
   userMessageTime: {
     color: "#f5f5f5",
-    textAlign: "right"
+    textAlign: "right",
   },
   botMessageTime: {
     color: "#666",
-    textAlign: "right"
+    textAlign: "right",
   },
   systemMessageTime: {
     color: "#999",
-    textAlign: "right"
+    textAlign: "right",
   },
   typingBubble: {
     minHeight: 60,
-    justifyContent: "center"
+    justifyContent: "center",
   },
   typingContainer: {
     flexDirection: "row",
-    alignItems: "center"
+    alignItems: "center",
   },
   typingText: {
     color: "#666",
     fontSize: 14,
-    fontStyle: "italic"
+    fontStyle: "italic",
   },
   dotsContainer: {
-    marginLeft: 8
+    marginLeft: 8,
   },
   inputContainer: {
     backgroundColor: "#fff",
@@ -523,6 +697,6 @@ const styles = StyleSheet.create({
     color: "#333",
     fontWeight: "500",
   },
-})
+});
 
-export default ChatMessages
+export default ChatMessages;

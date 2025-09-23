@@ -58,6 +58,47 @@ const SuccessModal = ({ isVisible, onClose }) => {
   )
 }
 
+// Image Picker Options Modal
+const ImagePickerModal = ({ isVisible, onClose, onCamera, onGallery }) => {
+  return (
+    <Modal
+      animationType="slide"
+      transparent={true}
+      visible={isVisible}
+      onRequestClose={onClose}
+    >
+      <View style={imagePickerModalStyles.overlay}>
+        <View style={imagePickerModalStyles.container}>
+          <View style={imagePickerModalStyles.header}>
+            <Text style={imagePickerModalStyles.title}>Select Profile Picture</Text>
+            <TouchableOpacity onPress={onClose} style={imagePickerModalStyles.closeButton}>
+              <Ionicons name="close" size={24} color="#666" />
+            </TouchableOpacity>
+          </View>
+          
+          <View style={imagePickerModalStyles.optionsContainer}>
+            <TouchableOpacity style={imagePickerModalStyles.option} onPress={onCamera}>
+              <View style={imagePickerModalStyles.optionIconContainer}>
+                <Ionicons name="camera" size={32} color="#007AFF" />
+              </View>
+              <Text style={imagePickerModalStyles.optionTitle}>Take Photo</Text>
+              <Text style={imagePickerModalStyles.optionSubtitle}>Use camera to capture a new photo</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity style={imagePickerModalStyles.option} onPress={onGallery}>
+              <View style={imagePickerModalStyles.optionIconContainer}>
+                <Ionicons name="images" size={32} color="#007AFF" />
+              </View>
+              <Text style={imagePickerModalStyles.optionTitle}>Choose from Gallery</Text>
+              <Text style={imagePickerModalStyles.optionSubtitle}>Select an existing photo from your device</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  )
+}
+
 export default function AccountSettings({ navigation }) {
   const { userProfile, setUserProfile } = useContext(UserContext)
 
@@ -68,6 +109,7 @@ export default function AccountSettings({ navigation }) {
   const [isSuccess, setIsSuccess] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
+  const [showImagePicker, setShowImagePicker] = useState(false)
 
   const currentUser = auth.currentUser
 
@@ -105,14 +147,68 @@ export default function AccountSettings({ navigation }) {
     }
   }
 
-  const handleImagePicker = async () => {
-    try {
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync()
-      if (status !== 'granted') {
-        Alert.alert("Permission Required", "Please grant permission to access photos")
-        return
-      }
+  const handleImagePicker = () => {
+    setShowImagePicker(true)
+  }
 
+  const requestCameraPermissions = async () => {
+    const cameraPermission = await ImagePicker.requestCameraPermissionsAsync()
+    if (cameraPermission.status !== 'granted') {
+      Alert.alert("Permission Required", "Please grant camera permission to take photos")
+      return false
+    }
+    return true
+  }
+
+  const requestGalleryPermissions = async () => {
+    const galleryPermission = await ImagePicker.requestMediaLibraryPermissionsAsync()
+    if (galleryPermission.status !== 'granted') {
+      Alert.alert("Permission Required", "Please grant permission to access photos")
+      return false
+    }
+    return true
+  }
+
+  const handleTakePhoto = async () => {
+    setShowImagePicker(false)
+    
+    const hasPermission = await requestCameraPermissions()
+    if (!hasPermission) return
+
+    try {
+      const result = await ImagePicker.launchCameraAsync({
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+        base64: false,
+      })
+
+      console.log("Camera result:", result)
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const newImageUri = result.assets[0].uri
+        console.log("Captured image URI:", newImageUri)
+        
+        setProfileImageUri(newImageUri)
+        
+        setUserProfile({ 
+          ...userProfile, 
+          profileImage: { uri: newImageUri }
+        })
+      }
+    } catch (error) {
+      console.error("Error taking photo:", error)
+      Alert.alert("Error", "Failed to take photo")
+    }
+  }
+
+  const handleChooseFromGallery = async () => {
+    setShowImagePicker(false)
+    
+    const hasPermission = await requestGalleryPermissions()
+    if (!hasPermission) return
+
+    try {
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
@@ -121,7 +217,7 @@ export default function AccountSettings({ navigation }) {
         base64: false,
       })
 
-      console.log("Image picker result:", result)
+      console.log("Gallery result:", result)
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
         const newImageUri = result.assets[0].uri
@@ -368,6 +464,12 @@ export default function AccountSettings({ navigation }) {
       </SafeAreaView>
       
       <SuccessModal isVisible={isSuccess} onClose={handleCloseModal} />
+      <ImagePickerModal 
+        isVisible={showImagePicker}
+        onClose={() => setShowImagePicker(false)}
+        onCamera={handleTakePhoto}
+        onGallery={handleChooseFromGallery}
+      />
     </SafeAreaProvider>
   )
 }
@@ -424,7 +526,7 @@ const styles = StyleSheet.create({
     height: 150,
     borderRadius: 75,
   },
-  profileImagePlaceholder: { // New style for the placeholder
+  profileImagePlaceholder: {
     width: 150,
     height: 150,
     borderRadius: 75,
@@ -583,5 +685,73 @@ const modalStyles = StyleSheet.create({
     fontWeight: "bold",
     textAlign: "center",
     fontSize: 16,
+  },
+})
+
+const imagePickerModalStyles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "flex-end",
+  },
+  container: {
+    backgroundColor: "white",
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingBottom: Platform.OS === 'ios' ? 34 : 20,
+  },
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: "#E0E0E0",
+  },
+  title: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#333",
+  },
+  closeButton: {
+    padding: 5,
+  },
+  optionsContainer: {
+    paddingHorizontal: 20,
+    paddingTop: 20,
+  },
+  option: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 15,
+    paddingHorizontal: 15,
+    marginBottom: 10,
+    backgroundColor: "#F8F9FA",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#E0E0E0",
+  },
+  optionIconContainer: {
+    width: 50,
+    height: 50,
+    backgroundColor: "#E3F2FD",
+    borderRadius: 25,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 15,
+  },
+  optionTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#333",
+    marginBottom: 2,
+    flex: 1,
+  },
+  optionSubtitle: {
+    fontSize: 14,
+    color: "#666",
+    flex: 1,
   },
 })

@@ -176,7 +176,7 @@ export default function SignUpScreen({ navigation }) {
       hasError = true
     }
     if (!gender) {
-      setGenderError("Gender is required")
+      setGenderError("Sex is required")
       hasError = true
     }
     if (!phoneNumber.trim()) {
@@ -425,7 +425,9 @@ export default function SignUpScreen({ navigation }) {
 
               {/* FIRST NAME INPUT */}
               <View style={styles.inputContainer}>
-                <Text style={styles.label}>First Name</Text>
+                <Text style={styles.label}>
+                  First Name<Text style={styles.required}>*</Text>
+                </Text>
                 <View
                   style={[
                     styles.inputWrapper,
@@ -462,7 +464,9 @@ export default function SignUpScreen({ navigation }) {
 
               {/* LAST NAME INPUT */}
               <View style={styles.inputContainer}>
-                <Text style={styles.label}>Last Name</Text>
+                <Text style={styles.label}>
+                  Last Name<Text style={styles.required}>*</Text>
+                </Text>
                 <View
                   style={[
                     styles.inputWrapper,
@@ -499,7 +503,9 @@ export default function SignUpScreen({ navigation }) {
 
               {/* EMAIL INPUT */}
               <View style={styles.inputContainer}>
-                <Text style={styles.label}>Email</Text>
+                <Text style={styles.label}>
+                  Email<Text style={styles.required}>*</Text>
+                </Text>
                 <View
                   style={[
                     styles.inputWrapper,
@@ -537,7 +543,9 @@ export default function SignUpScreen({ navigation }) {
 
               {/* PASSWORD INPUT */}
               <View style={styles.inputContainer}>
-                <Text style={styles.label}>Password</Text>
+                <Text style={styles.label}>
+                  Password<Text style={styles.required}>*</Text>
+                </Text>
                 <View
                   style={[
                     styles.inputWrapper,
@@ -612,7 +620,9 @@ export default function SignUpScreen({ navigation }) {
 
               {/* CONFIRM PASSWORD INPUT */}
               <View style={styles.inputContainer}>
-                <Text style={styles.label}>Confirm Password</Text>
+                <Text style={styles.label}>
+                  Confirm Password<Text style={styles.required}>*</Text>
+                </Text>
                 <View
                   style={[
                     styles.inputWrapper,
@@ -660,7 +670,9 @@ export default function SignUpScreen({ navigation }) {
 
               {/* BIRTH DATE INPUT */}
               <View style={styles.inputContainer}>
-                <Text style={styles.label}>Birth Date</Text>
+                <Text style={styles.label}>
+                  Birth Date<Text style={styles.required}>*</Text>
+                </Text>
                 <TouchableOpacity
                   style={[
                     styles.inputWrapper,
@@ -702,7 +714,9 @@ export default function SignUpScreen({ navigation }) {
 
               {/* GENDER PICKER */}
               <View style={styles.inputContainer}>
-                <Text style={styles.label}>Gender</Text>
+                <Text style={styles.label}>
+                  Sex<Text style={styles.required}>*</Text>
+                </Text>
                 <View
                   style={[
                     styles.inputWrapper,
@@ -746,7 +760,9 @@ export default function SignUpScreen({ navigation }) {
 
               {/* PHONE NUMBER INPUT - FIXED VERSION */}
               <View style={styles.inputContainer}>
-                <Text style={styles.label}>Phone Number</Text>
+                <Text style={styles.label}>
+                  Phone Number<Text style={styles.required}>*</Text>
+                </Text>
                 <View
                   style={[
                     styles.inputWrapper,
@@ -790,7 +806,9 @@ export default function SignUpScreen({ navigation }) {
 
               {/* ADDRESS INPUT */}
               <View style={styles.inputContainer}>
-                <Text style={styles.label}>Address</Text>
+                <Text style={styles.label}>
+                  Address<Text style={styles.required}>*</Text>
+                </Text>
                 <View
                   style={[
                     styles.inputWrapper,
@@ -849,6 +867,7 @@ export default function SignUpScreen({ navigation }) {
                     <Text style={styles.termsLink} onPress={handleTermsPress}>
                       Terms and Conditions
                     </Text>
+                    <Text style={styles.required}>*</Text>
                   </Text>
                 </TouchableOpacity>
                 {termsError ? (
@@ -953,6 +972,11 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: "#ffffff",
     marginBottom: 8,
+  },
+  required: {
+    color: "#FF6B6B",
+    fontSize: 16,
+    fontWeight: "600",
   },
   inputWrapper: {
     flexDirection: "row",

@@ -335,7 +335,7 @@ export default function Profile({ navigation }) {
           </View>
           <View style={styles.headerIcons}>
             <TouchableOpacity style={styles.iconButton}>
-              <Ionicons name="search-outline" size={24} color="#fff" />
+              
             </TouchableOpacity>
             <TouchableOpacity style={styles.iconButton} onPress={handleNotificationPress}>
               <Ionicons name="notifications-outline" size={24} color="#fff" />

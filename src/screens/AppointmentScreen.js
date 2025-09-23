@@ -19,25 +19,6 @@ import Navbar from '../navigations/navbar';
 import { db, auth } from '../config/firebaseConfig';
 import { collection, addDoc, serverTimestamp, onSnapshot, query, where, orderBy } from 'firebase/firestore';
 
-// Updated image map - make sure these match your Firebase localImage fields exactly
-const serviceImages = {
-  'Consulation.png': require('../../assets/ServicesScreen/Consulation.png'),
-  'atay.png': require('../../assets/ServicesScreen/atay.png'),
-  'image 32.png': require('../../assets/ServicesScreen/image 32.png'), // Tooth Extraction
-  'pit.png': require('../../assets/ServicesScreen/pit.png'), // Pit and Fissure
-  'image 36.png': require('../../assets/ServicesScreen/image 36.png'), 
-  'image 37.png': require('../../assets/ServicesScreen/image 37.png'), // Fluoride Varnish
-  'image 38.png': require('../../assets/ServicesScreen/image 38.png'), // Denture
-  'image 41.png': require('../../assets/ServicesScreen/image 41.png'), // Dental Filling
-  'image 42.png': require('../../assets/ServicesScreen/image 42.png'), // Frenectomy
-  'image 43.png': require('../../assets/ServicesScreen/image 43.png'), // Gingivectomy
-  'image 44.png': require('../../assets/ServicesScreen/image 44.png'), // Dental Crown
-  'image 45.png': require('../../assets/ServicesScreen/image 45.png'), // Teeth Whitening
-  'image 54.png': require('../../assets/ServicesScreen/image 54.png'), // Orthodontic Braces
-  'Root.png': require('../../assets/ServicesScreen/Root.png'), // Root Canal
-  'Braces.png': require('../../assets/ServicesScreen/Braces.png'), // If you have this
-};
-
 const AppointmentScreen = ({ navigation }) => {
   const today = new Date();
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -54,14 +35,12 @@ const AppointmentScreen = ({ navigation }) => {
   const [showConfirmationModal, setShowConfirmationModal] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [showPreConfirmationModal, setShowPreConfirmationModal] = useState(false);
-  
 
   const timeSlots = [
     '9:00 AM', '9:30 AM', '10:00 AM', '10:30 AM', '11:00 AM', '11:30 AM', '12:00 PM',
     '1:00 PM', '1:30 PM', '2:00 PM', '2:30 PM', '3:00 PM', '3:30 PM', '4:00 PM'
   ];
 
-  // Fetch services from Firebase
   useEffect(() => {
     const servicesRef = collection(db, 'services');
     const q = query(
@@ -80,13 +59,12 @@ const AppointmentScreen = ({ navigation }) => {
         fetchedServices.push(serviceData);
       });
       
-      // Debug logging to see what services are being fetched
       console.log('Fetched services count:', fetchedServices.length);
       fetchedServices.forEach((service, index) => {
         console.log(`Service ${index + 1}:`, {
           id: service.id,
           name: service.name,
-          localImage: service.localImage,
+          imageUrl: service.imageUrl,
           price: service.price
         });
       });
@@ -101,7 +79,6 @@ const AppointmentScreen = ({ navigation }) => {
     return () => unsubscribe();
   }, []);
 
-  
   const saveAppointmentToFirebase = async (appointmentData) => {
     try {
       const appointmentsCollection = collection(db, 'appointments');
@@ -130,12 +107,8 @@ const AppointmentScreen = ({ navigation }) => {
     let hour = parseInt(hours, 10);
     const minute = parseInt(minutes, 10);
 
-    if (period === 'PM' && hour !== 12) {
-      hour += 12;
-    }
-    if (period === 'AM' && hour === 12) {
-      hour = 0;
-    }
+    if (period === 'PM' && hour !== 12) hour += 12;
+    if (period === 'AM' && hour === 12) hour = 0;
 
     const timeSlotDate = new Date(
       selectedDate.getFullYear(),
@@ -334,7 +307,6 @@ const AppointmentScreen = ({ navigation }) => {
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
 
-      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity
           style={styles.backButton}
@@ -350,7 +322,6 @@ const AppointmentScreen = ({ navigation }) => {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Calendar Section */}
         <View style={styles.section}>
           <TouchableOpacity
             style={styles.sectionHeader}
@@ -373,7 +344,6 @@ const AppointmentScreen = ({ navigation }) => {
 
           {isCalendarExpanded ? (
             <>
-              {/* Month Navigator */}
               <View style={styles.monthNavigator}>
                 <TouchableOpacity onPress={goToPreviousMonth} style={styles.monthButton}>
                   <Ionicons name="chevron-back" size={20} color="#6B7280" />
@@ -386,7 +356,6 @@ const AppointmentScreen = ({ navigation }) => {
                 </TouchableOpacity>
               </View>
 
-              {/* Weekday Headers */}
               <View style={styles.weekdayHeaders}>
                 {daysOfWeek.map(day => (
                   <View key={day} style={styles.weekdayHeader}>
@@ -395,7 +364,6 @@ const AppointmentScreen = ({ navigation }) => {
                 ))}
               </View>
 
-              {/* Calendar Grid */}
               <View style={styles.calendarGrid}>
                 {generateCalendarDays().map((day, index) => (
                   <View key={index} style={styles.dayContainer}>
@@ -431,7 +399,6 @@ const AppointmentScreen = ({ navigation }) => {
               </View>
             </>
           ) : (
-            /* Week View */
             <View style={styles.weekView}>
               <View style={styles.weekDaysContainer}>
                 {generateCurrentWeekDays().map((day, index) => (
@@ -466,7 +433,6 @@ const AppointmentScreen = ({ navigation }) => {
           )}
         </View>
 
-        {/* Select Time Section */}
         <View style={styles.section}>
           <TouchableOpacity
             style={styles.sectionHeader}
@@ -534,7 +500,6 @@ const AppointmentScreen = ({ navigation }) => {
           )}
         </View>
 
-        {/* Choose Services Section - FIXED */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Choose Services</Text>
           {servicesLoading ? (
@@ -549,8 +514,7 @@ const AppointmentScreen = ({ navigation }) => {
           ) : (
             <View style={styles.servicesGrid}>
               {services.map((service) => {
-                // Get the image source, fallback to consultation image if not found
-                const imageSource = serviceImages[service.localImage] || serviceImages['Consulation.png'];
+                const imageUrl = service.imageUrl || 'https://via.placeholder.com/40';
                 
                 return (
                   <TouchableOpacity
@@ -562,11 +526,11 @@ const AppointmentScreen = ({ navigation }) => {
                     ]}
                   >
                     <Image
-                      source={imageSource}
+                      source={{ uri: imageUrl }}
                       style={styles.serviceImage}
                       resizeMode="contain"
                       onError={(error) => {
-                        console.log('Image load error for', service.localImage, error);
+                        console.log('Image load error for', imageUrl, error);
                       }}
                     />
                     <Text style={[
@@ -588,11 +552,9 @@ const AppointmentScreen = ({ navigation }) => {
           )}
         </View>
 
-        {/* Add some bottom padding for the confirm button */}
         <View style={{ height: 100 }} />
       </ScrollView>
 
-      {/* Confirm Button */}
       <View style={styles.confirmContainer}>
         <TouchableOpacity
           onPress={handleConfirm}
@@ -613,7 +575,6 @@ const AppointmentScreen = ({ navigation }) => {
         </TouchableOpacity>
       </View>
 
-      {/* Pre-Confirmation Modal */}
       <Modal
         visible={showPreConfirmationModal}
         transparent={true}
@@ -665,7 +626,6 @@ const AppointmentScreen = ({ navigation }) => {
         </View>
       </Modal>
 
-      {/* Confirmation Modal with Lottie Animation */}
       <Modal
         visible={showConfirmationModal}
         transparent={true}
@@ -674,7 +634,6 @@ const AppointmentScreen = ({ navigation }) => {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContainer}>
-            {/* Lottie Animation */}
             <View style={styles.lottieContainer}>
               <LottieView
                 source={{ uri: "https://lottie.host/5932cdd8-b997-45e2-8fb4-f0de0a34f833/EHJYv8dMM7.lottie" }}
@@ -684,10 +643,8 @@ const AppointmentScreen = ({ navigation }) => {
               />
             </View>
 
-            {/* Success Message */}
             <Text style={styles.successTitle}>Appointment booked Successfully!</Text>
 
-            {/* Appointment Details */}
             <Text style={styles.appointmentDetails}>
               Appointment booked <Text style={styles.doctorName}>Dr. Jessica Fano</Text>
             </Text>
@@ -695,7 +652,6 @@ const AppointmentScreen = ({ navigation }) => {
               on {formatDateForModal(selectedDate)} {selectedTime} to {getEndTime(selectedTime)}
             </Text>
 
-            {/* Return to Home Button */}
             <TouchableOpacity
               onPress={handleReturnToHome}
               style={styles.returnButton}
@@ -706,7 +662,6 @@ const AppointmentScreen = ({ navigation }) => {
         </View>
       </Modal>
 
-      {/* Bottom Navigation */}
       <Navbar navigation={navigation} activeTab="Appointment" />
     </SafeAreaView>
   );
@@ -933,7 +888,6 @@ const styles = StyleSheet.create({
   disabledTimeSlotText: {
     color: '#9CA3AF',
   },
-  // Services Styles - Fixed for proper display
   servicesGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',

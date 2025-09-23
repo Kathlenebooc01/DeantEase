@@ -1,5 +1,4 @@
 import React, { useState, useMemo, useEffect } from "react";
-
 import {
   View,
   Text,
@@ -19,33 +18,23 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { db } from '../config/firebaseConfig';
 import { collection, onSnapshot, query, where, orderBy } from 'firebase/firestore';
 
-// Updated image map - make sure these match your Firebase localImage fields exactly
-const serviceImages = {
-  'Consulation.png': require('../../assets/ServicesScreen/Consulation.png'),
-  'atay.png': require('../../assets/ServicesScreen/atay.png'),
-  'image 32.png': require('../../assets/ServicesScreen/image 32.png'), // Tooth Extraction
-  'pit.png': require('../../assets/ServicesScreen/pit.png'), // Pit and Fissure
-  'image 36.png': require('../../assets/ServicesScreen/image 36.png'), 
-  'image 37.png': require('../../assets/ServicesScreen/image 37.png'), // Fluoride Varnish
-  'image 38.png': require('../../assets/ServicesScreen/image 38.png'), // Denture
-  'image 41.png': require('../../assets/ServicesScreen/image 41.png'), // Dental Filling
-  'image 42.png': require('../../assets/ServicesScreen/image 42.png'), // Frenectomy
-  'image 43.png': require('../../assets/ServicesScreen/image 43.png'), // Gingivectomy
-  'image 44.png': require('../../assets/ServicesScreen/image 44.png'), // Dental Crown
-  'image 45.png': require('../../assets/ServicesScreen/image 45.png'), // Teeth Whitening
-  'image 54.png': require('../../assets/ServicesScreen/image 54.png'), // Orthodontic Braces
-  'Root.png': require('../../assets/ServicesScreen/Root.png'), // Root Canal
-  'Braces.png': require('../../assets/ServicesScreen/Braces.png'), // If you have this
-};
-
 // Category mapping: Display name -> Firebase value
 const categoryMapping = {
   "All": "All",
   "Preventive & General Care": "preventive",
-  "Restorative Care": "restorative", 
+  "Restorative Care": "restorative",
   "Cosmetic Dentistry": "cosmetic",
   "Surgical Procedures": "surgical",
   "Orthodontics & Specialties": "orthodontics"
+};
+
+// Specific services per category (adjusted to match Firebase logs)
+const categoryServices = {
+  "Cosmetic Dentistry": ["Teeth Whitening"],
+  "Preventive & General Care": ["Dental Consultation", "Dental Cleaning (Oral Prophylaxis)", "Fluoride Varnish", "Pit and Fissure Sealand"],
+  "Restorative Care": ["Dental Filling (Pasta)", "Root Canal Treatment", "Dental Crown", "Denture"],
+  "Surgical Procedures": ["Tooth Extraction", "Gingivectomy", "Frenectomy"],
+  "Orthodontics & Specialties": ["Orthodontic Braces"]
 };
 
 // Categories for display in the filter
@@ -66,7 +55,7 @@ export default function ServicesScreen({ navigation }) {
   
   const itemsPerPage = 6;
 
-  // Fetch services from Firebase - Same logic as AppointmentScreen
+  // Fetch services from Firebase
   useEffect(() => {
     const servicesRef = collection(db, 'services');
     const q = query(
@@ -85,13 +74,12 @@ export default function ServicesScreen({ navigation }) {
         fetchedServices.push(serviceData);
       });
       
-      // Debug logging to see what services are being fetched
       console.log('ServicesScreen - Fetched services count:', fetchedServices.length);
       fetchedServices.forEach((service, index) => {
         console.log(`ServicesScreen - Service ${index + 1}:`, {
           id: service.id,
           name: service.name,
-          localImage: service.localImage,
+          imageUrl: service.imageUrl,
           price: service.price,
           category: service.category
         });
@@ -110,7 +98,6 @@ export default function ServicesScreen({ navigation }) {
   const handleServicePress = (serviceId) => {
     setSelectedService(serviceId);
     console.log("Service selected:", serviceId);
-    // Enable expansion for all services that have details
     const service = services.find(s => s.id === serviceId);
     if (service && service.description) {
       setExpandedServices((prev) => ({
@@ -120,7 +107,6 @@ export default function ServicesScreen({ navigation }) {
     }
   };
 
-  // New function to handle opening service details modal
   const handleServiceDetailsPress = (serviceId) => {
     setSelectedService(serviceId);
     setShowServiceDetailsModal(true);
@@ -144,9 +130,7 @@ export default function ServicesScreen({ navigation }) {
     setCurrentPage(1);
   };
 
-  // Function to get display name for category
   const getCategoryDisplayName = (firebaseCategory) => {
-    // Find the display name for a Firebase category value
     const entry = Object.entries(categoryMapping).find(([displayName, fbValue]) => fbValue === firebaseCategory);
     return entry ? entry[0] : firebaseCategory;
   };
@@ -158,7 +142,6 @@ export default function ServicesScreen({ navigation }) {
           .toLowerCase()
           .includes(searchQuery.toLowerCase());
         
-        // Handle category filtering with mapping
         let matchesFilter;
         if (filterCategory === "All") {
           matchesFilter = true;
@@ -177,7 +160,7 @@ export default function ServicesScreen({ navigation }) {
         
         return matchesSearch && matchesFilter;
       })
-      .sort((a, b) => (a.order || 0) - (b.order || 0)); // Sort by order field from Firebase
+      .sort((a, b) => (a.order || 0) - (b.order || 0));
   }, [searchQuery, filterCategory, services]);
 
   const totalPages = Math.ceil(filteredServices.length / itemsPerPage);
@@ -191,7 +174,6 @@ export default function ServicesScreen({ navigation }) {
     (service) => service.id === selectedService
   );
 
-  // Function to format price from Firebase
   const formatPrice = (price) => {
     if (!price) return 'Contact for pricing';
     if (typeof price === 'string') return price;
@@ -256,8 +238,7 @@ export default function ServicesScreen({ navigation }) {
           ) : (
             <View style={styles.servicesGrid}>
               {currentServices.map((service) => {
-                // Get the image source, fallback to consultation image if not found
-                const imageSource = serviceImages[service.localImage] || serviceImages['Consulation.png'];
+                const imageUrl = service.imageUrl || 'https://via.placeholder.com/60';
                 
                 return (
                   <View key={service.id} style={styles.serviceWrapper}>
@@ -274,18 +255,17 @@ export default function ServicesScreen({ navigation }) {
                     >
                       <View style={styles.serviceContent}>
                         <Image
-                          source={imageSource}
+                          source={{ uri: imageUrl }}
                           style={styles.serviceImage}
                           resizeMode="contain"
                           onError={(error) => {
-                            console.log('ServicesScreen - Image load error for', service.localImage, error);
+                            console.log('ServicesScreen - Image load error for', imageUrl, error);
                           }}
                         />
                         <Text style={styles.serviceName}>{service.name || 'Unnamed Service'}</Text>
                         <Text style={styles.servicePrice}>{formatPrice(service.price)}</Text>
                       </View>
                      
-                      {/* View More button inside the card */}
                       <View style={styles.viewMoreButtonInside}>
                         <Text style={styles.viewMoreTextInside}>view more</Text>
                         <Ionicons name="chevron-forward" size={16} color="#1290D5" />
@@ -315,9 +295,7 @@ export default function ServicesScreen({ navigation }) {
                 styles.paginationButton,
                 currentPage === totalPages && styles.disabledButton,
               ]}
-              onPress={() =>
-                setCurrentPage((prev) => Math.min(totalPages, prev + 1))
-              }
+              onPress={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
               disabled={currentPage === totalPages}
             >
               <Text style={styles.paginationText}>Next Page</Text>
@@ -352,8 +330,7 @@ export default function ServicesScreen({ navigation }) {
                 <Text
                   style={[
                     styles.modalFilterText,
-                    filterCategory === category &&
-                      styles.modalFilterTextActive,
+                    filterCategory === category && styles.modalFilterTextActive,
                   ]}
                 >
                   {category}
@@ -383,7 +360,7 @@ export default function ServicesScreen({ navigation }) {
             {selectedServiceDetails && (
               <ScrollView showsVerticalScrollIndicator={false}>
                 <Image
-                  source={serviceImages[selectedServiceDetails.localImage] || serviceImages['Consulation.png']}
+                  source={{ uri: selectedServiceDetails.imageUrl || 'https://via.placeholder.com/100' }}
                   style={styles.detailsModalImage}
                   resizeMode="contain"
                 />
@@ -394,7 +371,6 @@ export default function ServicesScreen({ navigation }) {
                   {selectedServiceDetails.description || 'No description available.'}
                 </Text>
 
-                {/* Price section */}
                 <View style={styles.detailSection}>
                   <Text style={styles.detailSectionTitle}>Price:</Text>
                   <Text style={styles.detailSectionText}>
@@ -402,7 +378,6 @@ export default function ServicesScreen({ navigation }) {
                   </Text>
                 </View>
 
-                {/* Category section if available */}
                 {selectedServiceDetails.category && (
                   <View style={styles.detailSection}>
                     <Text style={styles.detailSectionTitle}>Category:</Text>
@@ -412,7 +387,6 @@ export default function ServicesScreen({ navigation }) {
                   </View>
                 )}
 
-                {/* Additional info section */}
                 <View style={styles.detailSection}>
                   <Text style={styles.detailSectionTitle}>About this service:</Text>
                   <Text style={styles.detailSectionText}>
@@ -589,7 +563,6 @@ const styles = StyleSheet.create({
     textAlign: "center",
     fontWeight: "600",
   },
-  // New styles for the inside view more button
   viewMoreButtonInside: {
     flexDirection: "row",
     alignItems: "center",
@@ -628,7 +601,6 @@ const styles = StyleSheet.create({
   disabledButton: {
     backgroundColor: "#ccc",
   },
-  // Modal styles
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0, 0, 0, 0.5)",
@@ -666,7 +638,6 @@ const styles = StyleSheet.create({
   modalFilterTextActive: {
     color: "#fff",
   },
-  // Details modal styles
   detailsModalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0, 0, 0, 0.7)",
@@ -712,7 +683,6 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     lineHeight: 22,
   },
-  // Additional styles for detailed sections
   detailSection: {
     marginBottom: 15,
     width: "100%",
