@@ -10,45 +10,11 @@ import {
   Alert,
   Modal,
   Linking,
-  Switch,
-  TextInput,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { auth, db } from '../config/firebaseConfig'; // Adjust path as needed
 import { doc, updateDoc, onSnapshot, collection, query, where, orderBy } from 'firebase/firestore';
-
-// Email Service for backend communication
-const API_BASE_URL = 'http://localhost:5000/api'; // Change to your deployed URL
-
-const bookingEmailService = {
-  async testConnection() {
-    try {
-      const response = await fetch(`${API_BASE_URL}/test-connection`);
-      return response.ok;
-    } catch (error) {
-      return false;
-    }
-  },
-
-  async sendTestEmail(userEmail, userName) {
-    try {
-      const response = await fetch(`${API_BASE_URL}/send-test-email`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          userEmail,
-          userName,
-        }),
-      });
-      return response.ok;
-    } catch (error) {
-      throw error;
-    }
-  }
-};
 
 const NotificationScreen = ({ navigation, route }) => {
   // Main states
@@ -57,17 +23,6 @@ const NotificationScreen = ({ navigation, route }) => {
   const [showNotificationModal, setShowNotificationModal] = useState(false);
   const [selectedNotification, setSelectedNotification] = useState(null);
   const [processedNotifications, setProcessedNotifications] = useState(new Set());
-
-  // Email integration states
-  const [showEmailSettings, setShowEmailSettings] = useState(false);
-  const [backendStatus, setBackendStatus] = useState('checking');
-  const [userEmail, setUserEmail] = useState('');
-  const [isUpdatingEmail, setIsUpdatingEmail] = useState(false);
-  const [emailPreferences, setEmailPreferences] = useState({
-    appointmentConfirmations: true,
-    appointmentReminders: true,
-    emergencyNotifications: true
-  });
 
   // Current user
   const currentUser = auth.currentUser;
@@ -89,8 +44,6 @@ const NotificationScreen = ({ navigation, route }) => {
   const initializeScreen = async () => {
     await loadStoredNotifications();
     await loadProcessedNotifications();
-    await loadUserEmailPreferences();
-    await checkBackendStatus();
     await markAllNotificationsAsRead();
   };
 
@@ -255,38 +208,7 @@ const NotificationScreen = ({ navigation, route }) => {
     }
   };
 
-  // Load user email preferences
-  const loadUserEmailPreferences = async () => {
-    try {
-      if (currentUser) {
-        const savedPrefs = await AsyncStorage.getItem(`email_prefs_${currentUser.uid}`);
-        if (savedPrefs) {
-          setEmailPreferences(JSON.parse(savedPrefs));
-        }
-        
-        const savedEmail = await AsyncStorage.getItem(`user_email_${currentUser.uid}`);
-        if (savedEmail) {
-          setUserEmail(savedEmail);
-        } else if (currentUser.email) {
-          setUserEmail(currentUser.email);
-        }
-      }
-    } catch (error) {
-      console.error('Error loading email preferences:', error);
-    }
-  };
-
-  // Check backend email service status
-  const checkBackendStatus = async () => {
-    try {
-      const result = await bookingEmailService.testConnection();
-      setBackendStatus(result ? 'online' : 'offline');
-    } catch (error) {
-      setBackendStatus('offline');
-    }
-  };
-
-  // Update unread count for red badge system - with both function names for compatibility
+  // Update unread count for red badge system
   const updateUnreadCount = async (updatedNotifications = null) => {
     try {
       if (currentUser) {
@@ -305,9 +227,6 @@ const NotificationScreen = ({ navigation, route }) => {
       console.error('Error updating unread count:', error);
     }
   };
-
-  // Alias for backward compatibility to prevent the error
-  const updateUnreadCountForNewNotification = updateUnreadCount;
 
   // Listen for real-time appointment updates
   const listenForAppointmentUpdates = () => {
@@ -402,8 +321,8 @@ const NotificationScreen = ({ navigation, route }) => {
               
               // Extract additional appointment details
               const doctorName = appointment.doctorName || appointment.doctor || 'Doctor';
-              const clinicName = appointment.clinicName || appointment.clinic || 'Clinic';
-              const service = appointment.service || appointment.serviceType || '';
+              const clinicName = 'Fano Dental Clinic'; // Always use Fano Dental Clinic
+              const service = appointment.service || appointment.serviceType || appointment.selectedServices || '';
               const reason = appointment.reason || appointment.description || '';
               const patientName = appointment.patientName || appointment.fullName || currentUser.displayName || 'Patient';
               
@@ -420,7 +339,7 @@ const NotificationScreen = ({ navigation, route }) => {
                   `👤 Patient: ${patientName}`;
                 
                 if (service) {
-                  notificationMessage += `\n🔬 Service: ${service}`;
+                  notificationMessage += `\n🦷 Services: ${service}`;
                 }
                 
                 if (reason) {
@@ -439,7 +358,7 @@ const NotificationScreen = ({ navigation, route }) => {
                   `👤 Patient: ${patientName}`;
                 
                 if (service) {
-                  notificationMessage += `\n🔬 Service: ${service}`;
+                  notificationMessage += `\n🦷 Services: ${service}`;
                 }
                 
                 if (reason) {
@@ -532,77 +451,6 @@ const NotificationScreen = ({ navigation, route }) => {
     } catch (error) {
       console.error('Error marking notification as shown:', error);
     }
-  };
-
-  // Save email preferences
-  const saveEmailPreferences = async (newPrefs) => {
-    try {
-      if (currentUser) {
-        await AsyncStorage.setItem(`email_prefs_${currentUser.uid}`, JSON.stringify(newPrefs));
-        setEmailPreferences(newPrefs);
-        
-        Alert.alert(
-          "Preferences Saved",
-          "Your email notification preferences have been updated.",
-          [{ text: 'OK' }]
-        );
-      }
-    } catch (error) {
-      Alert.alert("Save Failed", "Could not save preferences. Please try again.");
-    }
-  };
-
-  // Update user email
-  const updateUserEmail = async () => {
-    if (!userEmail.trim() || !userEmail.includes('@')) {
-      Alert.alert("Invalid Email", "Please enter a valid email address.");
-      return;
-    }
-
-    setIsUpdatingEmail(true);
-    try {
-      if (currentUser) {
-        await AsyncStorage.setItem(`user_email_${currentUser.uid}`, userEmail.trim());
-        Alert.alert("Email Updated", "Your email address has been updated successfully.");
-      }
-    } catch (error) {
-      Alert.alert("Update Failed", "Could not update your email. Please try again.");
-    } finally {
-      setIsUpdatingEmail(false);
-    }
-  };
-
-  // Send test email
-  const sendTestEmail = async () => {
-    if (backendStatus !== 'online') {
-      Alert.alert(
-        "Service Unavailable",
-        "Email service is currently offline. Please try again later."
-      );
-      return;
-    }
-
-    try {
-      await bookingEmailService.sendTestEmail(userEmail, currentUser?.displayName || 'User');
-      Alert.alert(
-        "Test Email Sent!",
-        "A test email has been sent to your email address. Please check your inbox (and spam folder)."
-      );
-    } catch (error) {
-      Alert.alert(
-        "Test Failed",
-        "Could not send test email. Please check your internet connection and try again."
-      );
-    }
-  };
-
-  // Toggle preference switch
-  const togglePreference = (key) => {
-    const newPrefs = {
-      ...emailPreferences,
-      [key]: !emailPreferences[key]
-    };
-    saveEmailPreferences(newPrefs);
   };
 
   // Notification handling functions
@@ -750,118 +598,6 @@ const NotificationScreen = ({ navigation, route }) => {
     );
   };
 
-  // Email Settings Modal
-  const renderEmailSettingsModal = () => (
-    <Modal
-      animationType="slide"
-      transparent={true}
-      visible={showEmailSettings}
-      onRequestClose={() => setShowEmailSettings(false)}
-    >
-      <View style={styles.modalOverlay}>
-        <View style={styles.emailSettingsModal}>
-          <View style={styles.emailSettingsHeader}>
-            <Text style={styles.modalTitle}>Email Settings</Text>
-            <TouchableOpacity onPress={() => setShowEmailSettings(false)}>
-              <Ionicons name="close" size={24} color="#6B7280" />
-            </TouchableOpacity>
-          </View>
-
-          <ScrollView style={styles.emailSettingsContent}>
-            {/* Service Status */}
-            <View style={styles.statusSection}>
-              <Text style={styles.sectionTitle}>Service Status</Text>
-              <View style={styles.statusRow}>
-                <View style={[
-                  styles.statusDot,
-                  { backgroundColor: backendStatus === 'online' ? '#16a34a' : '#f59e0b' }
-                ]} />
-                <Text style={styles.statusText}>
-                  Email service is {backendStatus === 'online' ? 'online' : 'offline'}
-                </Text>
-              </View>
-            </View>
-
-            {/* Email Address */}
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Email Address</Text>
-              <TextInput
-                style={styles.emailInput}
-                value={userEmail}
-                onChangeText={setUserEmail}
-                placeholder="Enter your email address"
-                keyboardType="email-address"
-                autoCapitalize="none"
-              />
-              <TouchableOpacity
-                style={[styles.updateButton, isUpdatingEmail && styles.buttonDisabled]}
-                onPress={updateUserEmail}
-                disabled={isUpdatingEmail}
-              >
-                <Text style={styles.buttonText}>
-                  {isUpdatingEmail ? 'Updating...' : 'Update Email'}
-                </Text>
-              </TouchableOpacity>
-
-              {backendStatus === 'online' && (
-                <TouchableOpacity style={styles.testButton} onPress={sendTestEmail}>
-                  <Text style={styles.testButtonText}>Send Test Email</Text>
-                </TouchableOpacity>
-              )}
-            </View>
-
-            {/* Email Preferences */}
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Email Preferences</Text>
-              
-              <View style={styles.preferenceItem}>
-                <View style={styles.preferenceContent}>
-                  <Text style={styles.preferenceTitle}>Appointment Confirmations</Text>
-                  <Text style={styles.preferenceSubtitle}>
-                    Get notified when appointments are confirmed
-                  </Text>
-                </View>
-                <Switch
-                  value={emailPreferences.appointmentConfirmations}
-                  onValueChange={() => togglePreference('appointmentConfirmations')}
-                  trackColor={{ false: '#d1d5db', true: '#3b82f6' }}
-                />
-              </View>
-
-              <View style={styles.preferenceItem}>
-                <View style={styles.preferenceContent}>
-                  <Text style={styles.preferenceTitle}>Appointment Reminders</Text>
-                  <Text style={styles.preferenceSubtitle}>
-                    Receive reminders before appointments
-                  </Text>
-                </View>
-                <Switch
-                  value={emailPreferences.appointmentReminders}
-                  onValueChange={() => togglePreference('appointmentReminders')}
-                  trackColor={{ false: '#d1d5db', true: '#3b82f6' }}
-                />
-              </View>
-
-              <View style={styles.preferenceItem}>
-                <View style={styles.preferenceContent}>
-                  <Text style={styles.preferenceTitle}>Emergency Notifications</Text>
-                  <Text style={styles.preferenceSubtitle}>
-                    Important updates and emergencies
-                  </Text>
-                </View>
-                <Switch
-                  value={emailPreferences.emergencyNotifications}
-                  onValueChange={() => togglePreference('emergencyNotifications')}
-                  trackColor={{ false: '#d1d5db', true: '#3b82f6' }}
-                />
-              </View>
-            </View>
-          </ScrollView>
-        </View>
-      </View>
-    </Modal>
-  );
-
   const renderNotificationModal = () => (
     <Modal
       animationType="fade"
@@ -944,23 +680,7 @@ const NotificationScreen = ({ navigation, route }) => {
           <Ionicons name="chevron-back" size={24} color="#374151" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Notification</Text>
-        <TouchableOpacity 
-          style={styles.settingsButton} 
-          onPress={() => setShowEmailSettings(true)}
-        >
-          <Ionicons name="settings-outline" size={24} color="#374151" />
-        </TouchableOpacity>
-      </View>
-
-      {/* Service Status Indicator */}
-      <View style={styles.serviceStatus}>
-        <View style={[
-          styles.serviceStatusDot,
-          { backgroundColor: backendStatus === 'online' ? '#16a34a' : '#f59e0b' }
-        ]} />
-        <Text style={styles.serviceStatusText}>
-          Email notifications {backendStatus === 'online' ? 'enabled' : 'unavailable'}
-        </Text>
+        <View style={styles.settingsButton} />
       </View>
 
       <View style={styles.content}>
@@ -988,7 +708,6 @@ const NotificationScreen = ({ navigation, route }) => {
 
       {renderNotificationModal()}
       {renderActionModal()}
-      {renderEmailSettingsModal()}
     </SafeAreaView>
   );
 };
@@ -1021,26 +740,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   settingsButton: {
-    padding: 4,
-  },
-  serviceStatus: {
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
-  },
-  serviceStatusDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    marginRight: 8,
-  },
-  serviceStatusText: {
-    fontSize: 12,
-    color: '#6B7280',
+    width: 32, // Maintain layout spacing
   },
   content: {
     flex: 1,
@@ -1216,105 +916,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#6B7280',
     fontWeight: '500',
-  },
-  emailSettingsModal: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    margin: 20,
-    maxHeight: '85%',
-    width: '90%',
-  },
-  emailSettingsHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
-  },
-  emailSettingsContent: {
-    padding: 20,
-  },
-  section: {
-    marginBottom: 24,
-  },
-  statusSection: {
-    marginBottom: 24,
-  },
-  statusRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 12,
-    backgroundColor: '#F9FAFB',
-    borderRadius: 8,
-  },
-  statusDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    marginRight: 12,
-  },
-  statusText: {
-    fontSize: 14,
-    color: '#374151',
-  },
-  emailInput: {
-    borderWidth: 1,
-    borderColor: '#D1D5DB',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-    backgroundColor: '#F9FAFB',
-    marginBottom: 12,
-  },
-  updateButton: {
-    backgroundColor: '#3B82F6',
-    padding: 12,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  buttonDisabled: {
-    backgroundColor: '#9CA3AF',
-  },
-  buttonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  testButton: {
-    backgroundColor: '#10B981',
-    padding: 12,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  testButtonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  preferenceItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 16,
-    backgroundColor: '#F9FAFB',
-    borderRadius: 8,
-    marginBottom: 12,
-  },
-  preferenceContent: {
-    flex: 1,
-    marginRight: 16,
-  },
-  preferenceTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1F2937',
-    marginBottom: 4,
-  },
-  preferenceSubtitle: {
-    fontSize: 14,
-    color: '#6B7280',
   },
   statusBadge: {
     paddingHorizontal: 8,
