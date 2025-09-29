@@ -400,16 +400,53 @@ const NotificationScreen = ({ navigation, route }) => {
               const formattedDate = formatDate(appointmentDate);
               const formattedTime = formatTime(appointmentTime);
               
-              // Create notification content
+              // Extract additional appointment details
+              const doctorName = appointment.doctorName || appointment.doctor || 'Doctor';
+              const clinicName = appointment.clinicName || appointment.clinic || 'Clinic';
+              const service = appointment.service || appointment.serviceType || '';
+              const reason = appointment.reason || appointment.description || '';
+              const patientName = appointment.patientName || appointment.fullName || currentUser.displayName || 'Patient';
+              
+              // Create comprehensive notification content
               let notificationTitle, notificationMessage, notificationType;
               
               if (appointment.status === 'approved') {
                 notificationTitle = 'Appointment Confirmed';
-                notificationMessage = `Your appointment for ${formattedDate} at ${formattedTime} has been confirmed. Please check your email for detailed information.`;
+                notificationMessage = `Your appointment has been confirmed!\n\n` +
+                  `📅 Date: ${formattedDate}\n` +
+                  `⏰ Time: ${formattedTime}\n` +
+                  `👨‍⚕️ Doctor: Dr. ${doctorName}\n` +
+                  `🏥 Clinic: ${clinicName}\n` +
+                  `👤 Patient: ${patientName}`;
+                
+                if (service) {
+                  notificationMessage += `\n🔬 Service: ${service}`;
+                }
+                
+                if (reason) {
+                  notificationMessage += `\n📝 Reason: ${reason}`;
+                }
+                
+                notificationMessage += `\n\n✅ Status: CONFIRMED\n\nPlease arrive 15 minutes early for your appointment.`;
                 notificationType = 'Booking Confirmation';
               } else if (appointment.status === 'declined') {
                 notificationTitle = 'Appointment Declined';
-                notificationMessage = `Your appointment request for ${formattedDate} at ${formattedTime} has been declined. Please check your email for details and rebooking options.`;
+                notificationMessage = `Unfortunately, your appointment request has been declined.\n\n` +
+                  `📅 Requested Date: ${formattedDate}\n` +
+                  `⏰ Requested Time: ${formattedTime}\n` +
+                  `👨‍⚕️ Doctor: Dr. ${doctorName}\n` +
+                  `🏥 Clinic: ${clinicName}\n` +
+                  `👤 Patient: ${patientName}`;
+                
+                if (service) {
+                  notificationMessage += `\n🔬 Service: ${service}`;
+                }
+                
+                if (reason) {
+                  notificationMessage += `\n📝 Reason: ${reason}`;
+                }
+                
+                notificationMessage += `\n\n❌ Status: DECLINED\n\nPlease try booking a different date or time slot, or contact the clinic directly.`;
                 notificationType = 'Booking Update';
               }
 
@@ -432,6 +469,12 @@ const NotificationScreen = ({ navigation, route }) => {
                 appointmentTime: formattedTime,
                 timestamp: timestamp,
                 notificationKey: notificationKey,
+                // Store additional details for full context
+                doctorName: doctorName,
+                clinicName: clinicName,
+                service: service,
+                reason: reason,
+                patientName: patientName,
               };
 
               console.log('New notification created:', newNotification.id);
@@ -697,17 +740,11 @@ const NotificationScreen = ({ navigation, route }) => {
         <View style={styles.notificationContent}>
           <Text
             style={[styles.notificationMessage, isUnread ? styles.unreadMessageText : null]}
-            numberOfLines={3}
+            numberOfLines={4}
             ellipsizeMode="tail"
           >
             {notification.message}
           </Text>
-          {/* Show email reminder for all booking notifications */}
-          {isBookingNotification && (
-            <Text style={[styles.emailReminder, isUnread ? styles.unreadEmailReminder : null]}>
-              📧 Please check your email for detailed information
-            </Text>
-          )}
         </View>
       </TouchableOpacity>
     );
@@ -1133,6 +1170,9 @@ const styles = StyleSheet.create({
     color: '#3B82F6',
     textDecorationLine: 'underline',
   },
+  modalScrollView: {
+    paddingBottom: 20,
+  },
   longPressModalContent: {
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
@@ -1293,16 +1333,6 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: 'bold',
     color: '#FFFFFF',
-  },
-  emailReminder: {
-    fontSize: 12,
-    color: '#059669',
-    fontStyle: 'italic',
-    marginTop: 8,
-    fontWeight: '500',
-  },
-  unreadEmailReminder: {
-    color: '#F3F4F6',
   },
   emptyState: {
     flex: 1,
