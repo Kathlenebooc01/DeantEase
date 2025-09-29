@@ -6,7 +6,7 @@ import Navbar from "../navigations/navbar";
 
 // Firebase imports
 import { db, auth } from '../config/firebaseConfig';
-import { collection, query, where, orderBy, onSnapshot, doc, updateDoc } from 'firebase/firestore';
+import { collection, query, where, orderBy, onSnapshot, doc, updateDoc, getDocs } from 'firebase/firestore';
 
 export default function ViewAppointmentScreen({ navigation }) {
   const [activeTab, setActiveTab] = useState("future");
@@ -14,6 +14,7 @@ export default function ViewAppointmentScreen({ navigation }) {
   const [pastAppointments, setPastAppointments] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState(null);
+  const [followUpMap, setFollowUpMap] = useState({}); // Map to track which appointments have follow-ups
 
   // Auth state listener
   useEffect(() => {
@@ -22,6 +23,28 @@ export default function ViewAppointmentScreen({ navigation }) {
     });
     return () => unsubscribeAuth();
   }, []);
+
+  // Check for follow-up appointments
+  const checkForFollowUps = async (appointments) => {
+    const followUpMapping = {};
+    
+    for (const appointment of appointments) {
+      // Query for follow-up appointments linked to this appointment
+      const followUpQuery = query(
+        collection(db, 'appointments'),
+        where('previousAppointmentId', '==', appointment.id),
+        where('isFollowUp', '==', true)
+      );
+      
+      const followUpSnapshot = await getDocs(followUpQuery);
+      
+      if (!followUpSnapshot.empty) {
+        followUpMapping[appointment.id] = true;
+      }
+    }
+    
+    setFollowUpMap(followUpMapping);
+  };
 
   // Fetch appointments from Firebase
   useEffect(() => {
@@ -36,10 +59,10 @@ export default function ViewAppointmentScreen({ navigation }) {
     const q = query(
       appointmentsRef,
       where('userId', '==', currentUser.uid),
-      orderBy('createdAt', 'desc') // Sorts by booking creation date, newest first
+      orderBy('createdAt', 'desc')
     );
 
-    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+    const unsubscribe = onSnapshot(q, async (querySnapshot) => {
       const future = [];
       const past = [];
       const now = new Date();
@@ -54,15 +77,11 @@ export default function ViewAppointmentScreen({ navigation }) {
             date: appointmentDate,
           };
 
-          // Updated Logic: 
-          // Past appointments: status is 'finished'
-          // Future appointments: status is 'approved' (confirmed by admin) or 'pending' (waiting for admin approval)
           if (data.status === 'finished') {
             past.push(appointmentData);
           } else if (data.status === 'approved' || data.status === 'pending') {
             future.push(appointmentData);
           }
-          // Note: 'declined' appointments are excluded from both lists
         }
       });
 
@@ -74,6 +93,10 @@ export default function ViewAppointmentScreen({ navigation }) {
 
       setFutureAppointments(future);
       setPastAppointments(past);
+      
+      // Check for follow-ups after setting appointments
+      await checkForFollowUps([...future, ...past]);
+      
       setIsLoading(false);
     }, (error) => {
       console.error("Error fetching appointments:", error);
@@ -185,8 +208,8 @@ export default function ViewAppointmentScreen({ navigation }) {
     }
 
     return appointments.map((appointment) => {
-      // Format services list
-      const servicesList = appointment.services ? appointment.services.join(', ') : 'General Consultation';
+      const hasFollowUp = followUpMap[appointment.id] || false;
+      const isFollowUpAppointment = appointment.isFollowUp || false;
       
       // Get the current date and time
       const now = new Date();
@@ -216,6 +239,11 @@ export default function ViewAppointmentScreen({ navigation }) {
               <View style={styles.doctorInfo}>
                 <Text style={styles.doctorName}>{appointment.doctor || 'Dr. Not Assigned'}</Text>
                 <Text style={styles.specialtyText}>Dentist</Text>
+                {isFollowUpAppointment && (
+                  <View style={styles.followUpBadge}>
+                    <Text style={styles.followUpBadgeText}>Follow-up</Text>
+                  </View>
+                )}
               </View>
               <View style={styles.procedureInfo}>
                 <Text style={styles.procedureText}>Procedure/Service</Text>
@@ -253,13 +281,21 @@ export default function ViewAppointmentScreen({ navigation }) {
                     <Text style={styles.pendingText}>Waiting for Approval</Text>
                   </View>
                 ) : appointment.status === 'approved' ? (
-                  <TouchableOpacity
-                    style={[styles.finishButton, !isAppointmentInThePast && styles.disabledButton]}
-                    onPress={() => confirmFinish(appointment.id)}
-                    disabled={!isAppointmentInThePast}
-                  >
-                    <Text style={styles.finishButtonText}>Finish</Text>
-                  </TouchableOpacity>
+                  <>
+                    <TouchableOpacity
+                      style={[
+                        styles.finishButton, 
+                        (!isAppointmentInThePast || hasFollowUp) && styles.disabledButton
+                      ]}
+                      onPress={() => confirmFinish(appointment.id)}
+                      disabled={!isAppointmentInThePast || hasFollowUp}
+                    >
+                      <Text style={styles.finishButtonText}>Finish</Text>
+                    </TouchableOpacity>
+                    {hasFollowUp && (
+                      <Text style={styles.followUpNotice}>Follow-up scheduled</Text>
+                    )}
+                  </>
                 ) : null}
               </View>
             )}
@@ -271,6 +307,12 @@ export default function ViewAppointmentScreen({ navigation }) {
                     {appointment.status === 'finished' ? 'Completed' : 'Finished'}
                   </Text>
                 </View>
+                {hasFollowUp && (
+                  <View style={[styles.followUpIndicator, { marginTop: 8 }]}>
+                    <Ionicons name="return-down-forward" size={16} color="#4CAF50" />
+                    <Text style={styles.followUpIndicatorText}>Has follow-up</Text>
+                  </View>
+                )}
               </View>
             )}
           </View>
@@ -439,6 +481,19 @@ const styles = StyleSheet.create({
     color: "#666",
     fontWeight: "400",
   },
+  followUpBadge: {
+    backgroundColor: "#4CAF50",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 10,
+    marginTop: 6,
+    alignSelf: "flex-start",
+  },
+  followUpBadgeText: {
+    color: "#fff",
+    fontSize: 11,
+    fontWeight: "600",
+  },
   procedureInfo: {
     alignItems: "flex-end",
     flex: 1,
@@ -508,6 +563,12 @@ const styles = StyleSheet.create({
   disabledButton: {
     backgroundColor: "#a0a0a0",
   },
+  followUpNotice: {
+    fontSize: 11,
+    color: "#4CAF50",
+    marginTop: 6,
+    fontWeight: "500",
+  },
   statusContainer: {
     alignItems: "flex-end",
     marginTop: 15,
@@ -523,8 +584,18 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     fontSize: 12,
   },
+  followUpIndicator: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  followUpIndicatorText: {
+    fontSize: 11,
+    color: "#4CAF50",
+    fontWeight: "500",
+  },
   pendingBadge: {
-    backgroundColor: "#FFC107", // Yellow/orange for pending approval
+    backgroundColor: "#FFC107",
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 15,
