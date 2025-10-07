@@ -1,4 +1,4 @@
-// Step 1: Update components/GlobalChatbot.js
+// components/GlobalChatbot.js
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
@@ -13,6 +13,7 @@ import {
   Platform,
   ActivityIndicator,
   Animated,
+  PanResponder,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -38,6 +39,10 @@ const GlobalChatbot = () => {
   const sleepBounceAnim = useRef(new Animated.Value(0)).current;
   const antennaAnim = useRef(new Animated.Value(0)).current;
   const flatListRef = useRef(null);
+  
+  // Draggable position
+  const pan = useRef(new Animated.ValueXY({ x: width - 84, y: height - 160 })).current;
+  const [fabPosition, setFabPosition] = useState({ x: width - 84, y: height - 160 });
 
   // Timers
   const sleepTimerRef = useRef(null);
@@ -54,6 +59,52 @@ const GlobalChatbot = () => {
       if (lookAroundTimerRef.current) clearTimeout(lookAroundTimerRef.current);
     };
   }, []);
+
+  // PanResponder for dragging
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: () => true,
+      onPanResponderGrant: () => {
+        updateInteraction();
+        pan.setOffset({
+          x: pan.x._value,
+          y: pan.y._value,
+        });
+        pan.setValue({ x: 0, y: 0 });
+      },
+      onPanResponderMove: Animated.event(
+        [null, { dx: pan.x, dy: pan.y }],
+        { useNativeDriver: false }
+      ),
+      onPanResponderRelease: (e, gesture) => {
+        pan.flattenOffset();
+        
+        const currentX = pan.x._value;
+        const currentY = pan.y._value;
+        
+        // Snap to left or right side
+        const screenMiddle = width / 2;
+        const snapToRight = currentX > screenMiddle - 32;
+        const targetX = snapToRight ? width - 84 : 20;
+        
+        // Keep Y within bounds
+        const minY = 50;
+        const maxY = height - 140;
+        const boundedY = Math.max(minY, Math.min(maxY, currentY));
+        
+        // Animate to final position
+        Animated.spring(pan, {
+          toValue: { x: targetX, y: boundedY },
+          useNativeDriver: false,
+          tension: 50,
+          friction: 7,
+        }).start();
+        
+        setFabPosition({ x: targetX, y: boundedY });
+      },
+    })
+  ).current;
 
   // Auto-scroll to bottom when new messages are added
   useEffect(() => {
@@ -743,158 +794,171 @@ const GlobalChatbot = () => {
 
   return (
     <>
-      {/* Floating Robot Action Button */}
-      <TouchableOpacity
-        style={styles.robotFab}
-        onPress={toggleChatbot}
-        activeOpacity={0.8}
+      {/* Floating Robot Action Button - Draggable */}
+      <Animated.View
+        style={[
+          styles.robotFab,
+          {
+            transform: [
+              { translateX: pan.x },
+              { translateY: pan.y },
+            ],
+          },
+        ]}
+        {...panResponder.panHandlers}
       >
-        <Animated.View 
-          style={[
-            styles.robotFabContainer,
-            {
-              transform: [{
-                translateY: robotState === 'sleeping' ? 
-                  sleepBounceAnim.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [0, 3]
-                  }) : 0
-              }]
-            }
-          ]}
+        <TouchableOpacity
+          style={styles.robotFabButton}
+          onPress={toggleChatbot}
+          activeOpacity={0.8}
         >
-          {/* Enhanced Robot Head */}
-          <View style={styles.fabRobotHead}>
-            {/* Robot Eyes */}
-            <View style={styles.fabRobotEyes}>
+          <Animated.View 
+            style={[
+              styles.robotFabContainer,
+              {
+                transform: [{
+                  translateY: robotState === 'sleeping' ? 
+                    sleepBounceAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [0, 3]
+                    }) : 0
+                }]
+              }
+            ]}
+          >
+            {/* Enhanced Robot Head */}
+            <View style={styles.fabRobotHead}>
+              {/* Robot Eyes */}
+              <View style={styles.fabRobotEyes}>
+                <Animated.View 
+                  style={[
+                    styles.fabRobotEye,
+                    {
+                      transform: [
+                        { 
+                          scaleY: robotState === 'sleeping' ? 0.1 : blinkAnim 
+                        },
+                        { 
+                          translateX: eyeLookAnim.interpolate({
+                            inputRange: [-1, 0, 1],
+                            outputRange: [-1.5, 0, 1.5]
+                          })
+                        }
+                      ],
+                      backgroundColor: robotState === 'sleeping' ? '#90A4AE' : '#E3F2FD'
+                    }
+                  ]}
+                />
+                <Animated.View 
+                  style={[
+                    styles.fabRobotEye,
+                    {
+                      transform: [
+                        { 
+                          scaleY: robotState === 'sleeping' ? 0.1 : blinkAnim 
+                        },
+                        { 
+                          translateX: eyeLookAnim.interpolate({
+                            inputRange: [-1, 0, 1],
+                            outputRange: [-1.5, 0, 1.5]
+                          })
+                        }
+                      ],
+                      backgroundColor: robotState === 'sleeping' ? '#90A4AE' : '#E3F2FD'
+                    }
+                  ]}
+                />
+              </View>
+              
+              {/* Robot Mouth */}
               <Animated.View 
                 style={[
-                  styles.fabRobotEye,
+                  styles.fabRobotMouth,
                   {
-                    transform: [
-                      { 
-                        scaleY: robotState === 'sleeping' ? 0.1 : blinkAnim 
-                      },
-                      { 
-                        translateX: eyeLookAnim.interpolate({
-                          inputRange: [-1, 0, 1],
-                          outputRange: [-1.5, 0, 1.5]
-                        })
-                      }
-                    ],
-                    backgroundColor: robotState === 'sleeping' ? '#90A4AE' : '#E3F2FD'
+                    backgroundColor: robotState === 'sleeping' ? '#90A4AE' : '#E3F2FD',
                   }
-                ]}
+                ]} 
               />
+            </View>
+            
+            {/* Robot Antenna */}
+            <View style={styles.fabRobotAntenna}>
+              <View style={styles.fabAntennaLine} />
               <Animated.View 
                 style={[
-                  styles.fabRobotEye,
+                  styles.fabAntennaTip,
                   {
-                    transform: [
-                      { 
-                        scaleY: robotState === 'sleeping' ? 0.1 : blinkAnim 
-                      },
-                      { 
-                        translateX: eyeLookAnim.interpolate({
-                          inputRange: [-1, 0, 1],
-                          outputRange: [-1.5, 0, 1.5]
-                        })
-                      }
-                    ],
-                    backgroundColor: robotState === 'sleeping' ? '#90A4AE' : '#E3F2FD'
+                    opacity: robotState === 'sleeping' ? 0.3 :
+                            antennaAnim.interpolate({
+                              inputRange: [0, 1],
+                              outputRange: [0.1, 1]
+                            }),
+                    transform: [{
+                      scale: robotState === 'sleeping' ? 0.8 :
+                             antennaAnim.interpolate({
+                               inputRange: [0, 1],
+                               outputRange: [0.8, 1.2]
+                             })
+                    }]
                   }
                 ]}
               />
             </View>
             
-            {/* Robot Mouth */}
-            <Animated.View 
-              style={[
-                styles.fabRobotMouth,
-                {
-                  backgroundColor: robotState === 'sleeping' ? '#90A4AE' : '#E3F2FD',
-                }
-              ]} 
-            />
-          </View>
-          
-          {/* Robot Antenna */}
-          <View style={styles.fabRobotAntenna}>
-            <View style={styles.fabAntennaLine} />
-            <Animated.View 
-              style={[
-                styles.fabAntennaTip,
-                {
-                  opacity: robotState === 'sleeping' ? 0.3 :
-                          antennaAnim.interpolate({
-                            inputRange: [0, 1],
-                            outputRange: [0.1, 1]
-                          }),
-                  transform: [{
-                    scale: robotState === 'sleeping' ? 0.8 :
-                           antennaAnim.interpolate({
-                             inputRange: [0, 1],
-                             outputRange: [0.8, 1.2]
-                           })
-                  }]
-                }
-              ]}
-            />
-          </View>
-          
-          {/* Sleep Z's */}
-          {robotState === 'sleeping' && (
-            <View style={styles.fabSleepIndicator}>
-              <Animated.Text 
-                style={[
-                  styles.fabSleepZ,
-                  {
-                    opacity: sleepBounceAnim.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: [0.4, 1]
-                    }),
-                    transform: [{
-                      translateY: sleepBounceAnim.interpolate({
+            {/* Sleep Z's */}
+            {robotState === 'sleeping' && (
+              <View style={styles.fabSleepIndicator}>
+                <Animated.Text 
+                  style={[
+                    styles.fabSleepZ,
+                    {
+                      opacity: sleepBounceAnim.interpolate({
                         inputRange: [0, 1],
-                        outputRange: [0, -8]
-                      })
-                    }]
-                  }
-                ]}
-              >
-                z
-              </Animated.Text>
-              <Animated.Text 
-                style={[
-                  styles.fabSleepZ,
-                  styles.fabSleepZ2,
-                  {
-                    opacity: sleepBounceAnim.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: [0.6, 0.8]
-                    }),
-                    transform: [{
-                      translateY: sleepBounceAnim.interpolate({
+                        outputRange: [0.4, 1]
+                      }),
+                      transform: [{
+                        translateY: sleepBounceAnim.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: [0, -8]
+                        })
+                      }]
+                    }
+                  ]}
+                >
+                  z
+                </Animated.Text>
+                <Animated.Text 
+                  style={[
+                    styles.fabSleepZ,
+                    styles.fabSleepZ2,
+                    {
+                      opacity: sleepBounceAnim.interpolate({
                         inputRange: [0, 1],
-                        outputRange: [3, -5]
-                      })
-                    }]
-                  }
-                ]}
-              >
-                z
-              </Animated.Text>
-            </View>
-          )}
-          
-          {/* Notification Badge */}
-          {!isVisible && messages.length > 1 && robotState !== 'sleeping' && (
-            <View style={styles.notificationBadge}>
-              <Text style={styles.notificationText}>!</Text>
-            </View>
-          )}
-        </Animated.View>
-      </TouchableOpacity>
+                        outputRange: [0.6, 0.8]
+                      }),
+                      transform: [{
+                        translateY: sleepBounceAnim.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: [3, -5]
+                        })
+                      }]
+                    }
+                  ]}
+                >
+                  z
+                </Animated.Text>
+              </View>
+            )}
+            
+            {/* Notification Badge */}
+            {!isVisible && messages.length > 1 && robotState !== 'sleeping' && (
+              <View style={styles.notificationBadge}>
+                <Text style={styles.notificationText}>!</Text>
+              </View>
+            )}
+          </Animated.View>
+        </TouchableOpacity>
+      </Animated.View>
 
       {/* Chat Modal */}
       <Modal
@@ -908,6 +972,10 @@ const GlobalChatbot = () => {
             style={[
               styles.chatContainer,
               {
+                // Position chat modal relative to FAB
+                left: fabPosition.x > width / 2 ? undefined : 20,
+                right: fabPosition.x > width / 2 ? 20 : undefined,
+                bottom: height - fabPosition.y - 20,
                 transform: [{
                   translateY: slideAnim.interpolate({
                     inputRange: [0, 0.1, 1],
@@ -1020,9 +1088,13 @@ const styles = StyleSheet.create({
   // Robot FAB Styles
   robotFab: {
     position: 'absolute',
-    bottom: 80,
-    right: 20,
+    top: 0,
+    left: 0,
     zIndex: 1000,
+  },
+  robotFabButton: {
+    width: 64,
+    height: 64,
   },
   robotFabContainer: {
     width: 64,
@@ -1201,8 +1273,6 @@ const styles = StyleSheet.create({
   },
   chatContainer: {
     position: 'absolute',
-    bottom: 100,
-    right: 20,
     width: width - 40,
     maxWidth: 350,
     height: height * 0.6,
